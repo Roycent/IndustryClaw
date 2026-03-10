@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 type PageId = 'dashboard' | 'workspace' | 'operations' | 'handover'
+type StepStatus = 'done' | 'active' | 'queued'
 
 type NavItem = {
   id: PageId
@@ -9,9 +10,32 @@ type NavItem = {
   desc: string
 }
 
-type StepStatus = 'done' | 'active' | 'queued'
+type DeviceCard = {
+  id: string
+  name: string
+  area: string
+  status: string
+  runtime: string
+  owner: string
+  alarm: string
+  workOrder: string
+}
 
-type TaskStatus = '处理中' | '待接单' | '超时' | '待确认'
+type WorkOrderRow = {
+  id: string
+  title: string
+  source: string
+  owner: string
+  level: string
+  plannedStart: string
+  deadline: string
+  node: string
+  advice: string
+  escalation: string
+  state: string
+  progress: string
+  updated: string
+}
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: '生产总览', short: '总览', desc: '班次、产线、任务、告警、未结项' },
@@ -29,16 +53,111 @@ const topStats = [
 
 const dashboardFilters = ['夜班 B 组', '包装线', 'P1-P2', '未结项', 'SLA<30m']
 
-const taskCenter: Array<{
-  title: string
-  owner: string
-  priority: string
-  status: TaskStatus
-  deadline: string
-  source: string
-  note: string
-  statusType: 'active' | 'queued' | 'done'
-}> = [
+const deviceCards: DeviceCard[] = [
+  {
+    id: 'PKG-03-HS',
+    name: '包装机 3 号 / 热封段',
+    area: '包装线 L03',
+    status: '异常监视',
+    runtime: '连续运行 01:18',
+    owner: '机修-李强',
+    alarm: '2h 内停机 5 次',
+    workOrder: 'WO-20260310-118',
+  },
+  {
+    id: 'AIR-A-01',
+    name: '空压站 A / 一级过滤',
+    area: '公辅区',
+    status: '待保养',
+    runtime: '寿命剩余 18h',
+    owner: '设备工程师-周宁',
+    alarm: '保养窗口不足',
+    workOrder: 'WO-20260310-112',
+  },
+  {
+    id: 'BAC-2-CHL',
+    name: '冷站 BAC-2 / 主机',
+    area: '冷站',
+    status: '超时待升级',
+    runtime: '偏差持续 46m',
+    owner: '公辅运维-王超',
+    alarm: '能耗抬升 8.4%',
+    workOrder: 'WO-20260310-107',
+  },
+]
+
+const deviceDetailMap: Record<string, {
+  docNo: string
+  version: string
+  model: string
+  assetNo: string
+  fit: string
+  lastRepair: string
+  lastReference: string
+  currentNode: string
+  keyChecks: string[]
+  cases: Array<{ code: string; title: string; result: string; lastUsed: string }>
+  records: Array<{ time: string; item: string; value: string; result: string }>
+}> = {
+  'PKG-03-HS': {
+    docNo: 'SOP-PKG-HS-04',
+    version: 'REV.12',
+    model: 'HFT-3200',
+    assetNo: 'EQ-L03-003-02',
+    fit: '包装机 3 号 / 热封段 / 夜班换型场景',
+    lastRepair: '03-10 21:40 人工复位 / 导轨清理',
+    lastReference: '22:24 被助手任务 AT-0310-09 引用',
+    currentNode: '复机观察 → 是否转计划停机',
+    keyChecks: ['热封温控模块端子松动', '导轨阻尼与碎屑堆积', '换型首件封边温度补偿', '连续 10 包抽检封边质量'],
+    cases: [
+      { code: 'CASE-PKG-219', title: '换型后温控波动导致连续短停', result: '更换模块后恢复，停线 28 分钟', lastUsed: '03-08 07:12' },
+      { code: 'CASE-PKG-184', title: '导轨卡滞叠加误报码', result: '清洁导轨并复位，未停线', lastUsed: '02-27 22:44' },
+    ],
+    records: [
+      { time: '22:21', item: '封边温度', value: '178.4℃ ↘ 171.2℃', result: '低于设定下限 4.8℃' },
+      { time: '22:18', item: '热封停机计数', value: '5 次 / 2h', result: '触发 P1 规则链' },
+      { time: '21:40', item: '人工处置', value: '导轨清理 / 人工复位', result: '恢复 38 分钟后再发' },
+    ],
+  },
+  'AIR-A-01': {
+    docNo: 'PM-AIR-02',
+    version: 'REV.07',
+    model: 'AF-1200',
+    assetNo: 'UT-AIR-001',
+    fit: '空压站 A / 一级过滤 / 保养停机窗口',
+    lastRepair: '03-06 15:30 差压表校准',
+    lastReference: '22:10 被保养策略自动引用',
+    currentNode: '排程确认 → 备件到位 → 执行更换',
+    keyChecks: ['差压 > 18kPa 前确认停机窗口', '锁定滤芯备件批次', '排水阀动作测试', '恢复后 15 分钟压力稳定观察'],
+    cases: [
+      { code: 'CASE-AIR-033', title: '夜班延迟保养导致供气波动', result: '次日 09:20 执行更换', lastUsed: '01-19 10:05' },
+    ],
+    records: [
+      { time: '22:10', item: '差压值', value: '16.8kPa', result: '接近策略阈值' },
+      { time: '21:54', item: '备件锁定', value: '滤芯 AF-1200 / 2 件', result: '仓库已预留' },
+    ],
+  },
+  'BAC-2-CHL': {
+    docNo: 'EN-BAC-02',
+    version: 'REV.03',
+    model: 'BAC-2',
+    assetNo: 'UT-CHL-002',
+    fit: '冷站 BAC-2 / 夜间能耗偏差复核',
+    lastRepair: '03-09 17:20 清洗冷凝器',
+    lastReference: '21:58 被能耗规则触发',
+    currentNode: '超时未回执 → 待维修负责人升级',
+    keyChecks: ['对比同负荷时段功率曲线', '确认冷却塔风机联动', '排查旁通阀误开', '记录超时原因与升级结论'],
+    cases: [
+      { code: 'CASE-BAC-011', title: '旁通阀误开造成夜间能耗抬升', result: '远程关闭恢复', lastUsed: '02-11 01:14' },
+    ],
+    records: [
+      { time: '21:58', item: '综合电耗', value: '+8.4%', result: '超出基线阈值' },
+      { time: '21:40', item: '工单回执', value: '未收到', result: '已计入升级链' },
+    ],
+  },
+}
+
+const taskCenter = [
   {
     title: '包装机 3 号热封段异常复核',
     owner: '机修-李强',
@@ -95,15 +214,6 @@ const dutyTable = [
   { module: '交接台账', owner: '赵明', status: '待确认', risk: '4 条未结项', updated: '22:24' },
 ]
 
-const contextPanels = [
-  { label: '班组 / 班次', value: '夜班 B 组 / 19:00-07:00', detail: '班长赵明 / 机修2 / 电气1 / 巡检1' },
-  { label: '设备上下文', value: '包装机 3 号 / 热封段', detail: '24h 停机 5 次 / 2h 温控波动 4 次' },
-  { label: '上次维修', value: '03-10 21:40 人工复位', detail: '导轨清理 / 未更换温控模块' },
-  { label: '历史告警', value: '近 7 天同类 8 次', detail: '5 次发生在夜班换型后 30 分钟内' },
-  { label: 'SOP 引用', value: 'PKG-HS-04 / REV.12', detail: '换型首件确认 / 温控异常处置 / 复机检查' },
-  { label: '责任链', value: '机修 → 电气 → 班组长', detail: '当前升级节点：班组长待确认' },
-]
-
 const chainSteps: { title: string; actor: string; detail: string; status: StepStatus; output: string }[] = [
   { title: '查询受理', actor: '班组长', detail: '设备：包装机 3 号；时间窗：本班；范围：停机原因 + 未结项。', status: 'done', output: '生成任务单 AT-0310-09 / 优先级 P1' },
   { title: '数据读取', actor: '设备助手', detail: '读取停机事件、温度曲线、振动趋势、换型记录、规则链告警。', status: 'done', output: '返回 5 次短停、4 次温控波动、2 次人工复位' },
@@ -122,9 +232,15 @@ const agentTranscript = [
 
 const resultPanels = [
   { system: '设备监控', key: '停机 / 温度 / 振动', detail: '近 24h 趋势已引用' },
-  { system: 'SOP 引用', key: 'PKG-HS-04 / REV.12', detail: '复机检查项 7 条' },
+  { system: 'SOP 引用', key: 'SOP-PKG-HS-04 / REV.12', detail: '复机检查项 7 条' },
   { system: '工单写入', key: 'WO-20260310-118 / 116', detail: '责任人、SLA、备件建议已同步' },
   { system: '通知记录', key: '回执跟踪中', detail: '机修已回执 / 白班待接收' },
+]
+
+const assistantReceipts = [
+  { node: '工单受理', person: '机修-李强', time: '22:12', status: '已接单' },
+  { node: '升级确认', person: '班组长-赵明', time: '--', status: '待确认' },
+  { node: '交接接收', person: '白班班长-陈涛', time: '--', status: '未接收' },
 ]
 
 const actionQueue = [
@@ -133,12 +249,107 @@ const actionQueue = [
   { item: '锁定交接版本 V1.0', owner: '班组长-赵明', due: '06:50', state: '待确认' },
 ]
 
-const workOrders = [
-  { id: 'WO-20260310-118', title: '包装机 3 号热封段点检', owner: '机修-李强', level: 'P1', sla: '30 分钟', source: 'RC-PKG-03', impact: '包装线 OEE -4.8%', state: '处理中', progress: '2/4', updated: '22:24' },
-  { id: 'WO-20260310-116', title: '温控模块更换评估', owner: '电气-张凯', level: 'P1', sla: '本班内', source: '助手任务 AT-0310-09', impact: '决定是否停线', state: '待接单', progress: '0/3', updated: '22:20' },
-  { id: 'WO-20260310-112', title: '空压站 A 滤芯更换排程', owner: '周宁', level: 'P2', sla: '18 小时内', source: 'PM-AIR-02', impact: '避免供气波动', state: '已派发', progress: '1/3', updated: '22:10' },
-  { id: 'WO-20260310-107', title: 'BAC-2 夜间能耗复核', owner: '王超', level: 'P2', sla: '收班前', source: 'EN-BAC-02', impact: '异常能耗 8.4%', state: '超时待升级', progress: '未回执', updated: '21:58' },
+const workOrders: WorkOrderRow[] = [
+  { id: 'WO-20260310-118', title: '包装机 3 号热封段点检', source: 'RC-PKG-03', owner: '机修-李强', level: 'P1', plannedStart: '22:10', deadline: '22:40', node: '现场点检', advice: '优先复核温控模块与导轨阻尼', escalation: '班组长 22:36 前确认是否停线', state: '处理中', progress: '2/4', updated: '22:24' },
+  { id: 'WO-20260310-116', title: '温控模块更换评估', source: '助手任务 AT-0310-09', owner: '电气-张凯', level: 'P1', plannedStart: '22:30', deadline: '06:30', node: '待接单', advice: '白班接收后确认是否转计划停机', escalation: '超时自动升级设备主管', state: '待接单', progress: '0/3', updated: '22:20' },
+  { id: 'WO-20260310-112', title: '空压站 A 滤芯更换排程', source: 'PM-AIR-02', owner: '周宁', level: 'P2', plannedStart: '23:00', deadline: '10:00', node: '排程确认', advice: '先锁定停机窗口，再下发作业票', escalation: '09:00 未排程通知班长', state: '已派发', progress: '1/3', updated: '22:10' },
+  { id: 'WO-20260310-107', title: 'BAC-2 夜间能耗复核', source: 'EN-BAC-02', owner: '王超', level: 'P2', plannedStart: '21:20', deadline: '收班前', node: '超时待升级', advice: '补录原因后转维修负责人审核', escalation: '已满足升级条件', state: '超时待升级', progress: '未回执', updated: '21:58' },
 ]
+
+const workOrderDetailMap: Record<string, {
+  fields: Array<{ label: string; value: string }>
+  steps: Array<{ title: string; owner: string; time: string; status: string }>
+  opinions: Array<{ by: string; text: string; time: string }>
+  escalations: Array<{ record: string; from: string; to: string; reason: string; time: string; status: string }>
+}> = {
+  'WO-20260310-118': {
+    fields: [
+      { label: '工单号', value: 'WO-20260310-118' },
+      { label: '来源', value: '规则链 RC-PKG-03' },
+      { label: '优先级', value: 'P1' },
+      { label: '责任人', value: '机修-李强' },
+      { label: '计划开始', value: '03-10 22:10' },
+      { label: '截止时间', value: '03-10 22:40' },
+      { label: '当前节点', value: '现场点检 / 复机观察' },
+      { label: '处理意见', value: '先排查温控模块接线，再确认是否转计划停机' },
+    ],
+    steps: [
+      { title: '自动派单', owner: '系统', time: '22:06', status: '完成' },
+      { title: '责任人接单', owner: '机修-李强', time: '22:12', status: '完成' },
+      { title: '现场点检', owner: '机修-李强', time: '22:24', status: '进行中' },
+      { title: '班长确认是否停线', owner: '赵明', time: '22:36', status: '待处理' },
+    ],
+    opinions: [
+      { by: '机修-李强', text: '导轨清理后恢复 38 分钟，但温控波动未消失，建议白班准备模块备件。', time: '22:24' },
+      { by: '设备助手', text: '近 7 天同类案例 8 次，夜班换型后 30 分钟内触发占比高。', time: '22:23' },
+    ],
+    escalations: [
+      { record: 'ESC-2206-01', from: '机修', to: '班组长', reason: '2h 内 5 次停机', time: '22:06', status: '待确认' },
+    ],
+  },
+  'WO-20260310-116': {
+    fields: [
+      { label: '工单号', value: 'WO-20260310-116' },
+      { label: '来源', value: '助手任务 AT-0310-09' },
+      { label: '优先级', value: 'P1' },
+      { label: '责任人', value: '白班电气-张凯' },
+      { label: '计划开始', value: '03-11 07:10' },
+      { label: '截止时间', value: '03-11 06:30' },
+      { label: '当前节点', value: '待接单 / 交接接收后生效' },
+      { label: '处理意见', value: '确认是否直接更换温控模块，必要时申请计划停机' },
+    ],
+    steps: [
+      { title: '工单生成', owner: '系统', time: '22:18', status: '完成' },
+      { title: '交接带出', owner: '夜班班长', time: '22:24', status: '完成' },
+      { title: '白班接单', owner: '张凯', time: '--', status: '待处理' },
+      { title: '停机决策', owner: '设备主管', time: '--', status: '待处理' },
+    ],
+    opinions: [
+      { by: '夜班班长-赵明', text: '建议白班首小时优先处理，避免再次触发批量短停。', time: '22:24' },
+    ],
+    escalations: [
+      { record: 'ESC-2230-03', from: '白班电气', to: '设备主管', reason: '06:30 前未形成停机结论自动升级', time: '待触发', status: '监控中' },
+    ],
+  },
+  'WO-20260310-112': {
+    fields: [
+      { label: '工单号', value: 'WO-20260310-112' },
+      { label: '来源', value: 'PM-AIR-02' },
+      { label: '优先级', value: 'P2' },
+      { label: '责任人', value: '周宁' },
+      { label: '计划开始', value: '03-10 23:00' },
+      { label: '截止时间', value: '03-11 10:00' },
+      { label: '当前节点', value: '排程确认' },
+      { label: '处理意见', value: '确认白班 09:20-09:50 停机窗口' },
+    ],
+    steps: [
+      { title: '策略触发', owner: '系统', time: '22:10', status: '完成' },
+      { title: '备件锁定', owner: '仓库', time: '22:12', status: '完成' },
+      { title: '停机窗口确认', owner: '周宁', time: '--', status: '进行中' },
+    ],
+    opinions: [{ by: '设备工程师-周宁', text: '备件充足，待产线反馈窗口。', time: '22:14' }],
+    escalations: [],
+  },
+  'WO-20260310-107': {
+    fields: [
+      { label: '工单号', value: 'WO-20260310-107' },
+      { label: '来源', value: 'EN-BAC-02' },
+      { label: '优先级', value: 'P2' },
+      { label: '责任人', value: '王超' },
+      { label: '计划开始', value: '03-10 21:20' },
+      { label: '截止时间', value: '03-10 收班前' },
+      { label: '当前节点', value: '超时待升级' },
+      { label: '处理意见', value: '补录超时原因后转维修负责人确认' },
+    ],
+    steps: [
+      { title: '告警转工单', owner: '系统', time: '21:20', status: '完成' },
+      { title: '责任人确认', owner: '王超', time: '--', status: '未回执' },
+      { title: '负责人升级', owner: '刘凯', time: '--', status: '待处理' },
+    ],
+    opinions: [{ by: '系统', text: '连续 38 分钟未回执，已进入升级监控。', time: '21:58' }],
+    escalations: [{ record: 'ESC-2158-02', from: '公辅运维', to: '维修负责人', reason: '超时未回执', time: '21:58', status: '待升级' }],
+  },
+}
 
 const alerts = [
   { level: '高', title: '热封段 2 小时内停机 5 次', device: '包装机 3 号', source: 'RC-PKG-03', owner: '机修-李强', state: '已转工单', action: '关联 WO-20260310-118 / 升级待确认', updated: '22:06' },
@@ -166,11 +377,40 @@ const handoverSummary = [
   'BAC-2 夜间能耗复核超时，待维修负责人确认升级结果。',
 ]
 
+const handoverSheets = [
+  {
+    id: 'HO-20260310-B2',
+    status: '待接收',
+    signTime: '--',
+    giver: '夜班 B 组 / 赵明',
+    receiver: '白班 A 组 / 陈涛',
+    pending: '4 项未结项 / 2 项升级',
+    attachment: '附件占位 2 份',
+    remark: '待白班确认是否计划停机',
+  },
+  {
+    id: 'HO-20260310-A1',
+    status: '已签收',
+    signTime: '03-10 18:52',
+    giver: '白班 A 组 / 陈涛',
+    receiver: '夜班 B 组 / 赵明',
+    pending: '1 项观察项',
+    attachment: '点检照片 4 张',
+    remark: '换型后首小时重点观察',
+  },
+]
+
 const pendingHandoverTasks = [
   { item: '确认温控模块是否直接更换', owner: '白班电气-张凯', due: '07:30', state: '待接收', receipt: '未回执' },
   { item: '复核换型后 30 分钟检查记录', owner: '白班班组长-陈涛', due: '08:00', state: '待确认', receipt: '未接收' },
   { item: '空压站 A 滤芯更换停机排程', owner: '设备工程师-周宁', due: '10:00', state: '待排程', receipt: '备件已锁定' },
   { item: 'BAC-2 能耗异常升级结果', owner: '维修负责人-刘凯', due: '收班后', state: '待决定', receipt: '升级未执行' },
+]
+
+const receiptRows = [
+  { role: '夜班班长', person: '赵明', action: '交出确认', time: '待确认', status: '未完成' },
+  { role: '白班班长', person: '陈涛', action: '接收确认', time: '--', status: '未接收' },
+  { role: '白班电气', person: '张凯', action: '未结项接收', time: '--', status: '未回执' },
 ]
 
 const shiftHistory = [
@@ -181,16 +421,52 @@ const shiftHistory = [
   { time: '22:24', event: '交接草稿生成', detail: '写入未结项、责任人、停机建议、白班复核项。', owner: '设备助手', result: 'V0.9' },
 ]
 
-const receiptRows = [
-  { role: '夜班班长', person: '赵明', action: '交出确认', time: '待确认', status: '未完成' },
-  { role: '白班班长', person: '陈涛', action: '接收确认', time: '--', status: '未接收' },
-  { role: '白班电气', person: '张凯', action: '未结项接收', time: '--', status: '未回执' },
-]
+const handoverDetailMap: Record<string, { fields: Array<{ label: string; value: string }>; receipts: Array<{ node: string; owner: string; status: string; time: string }>; files: string[] }> = {
+  'HO-20260310-B2': {
+    fields: [
+      { label: '交接单号', value: 'HO-20260310-B2' },
+      { label: '交出 / 接收', value: '夜班 B 组 → 白班 A 组' },
+      { label: '接收状态', value: '待签收' },
+      { label: '签收时间', value: '--' },
+      { label: '未结项', value: '4 项' },
+      { label: '附件', value: '点检记录、趋势截图占位' },
+      { label: '备注', value: '白班首小时优先处理热封段' },
+    ],
+    receipts: [
+      { node: '交出确认', owner: '赵明', status: '待完成', time: '--' },
+      { node: '班组接收', owner: '陈涛', status: '待签收', time: '--' },
+      { node: '未结项接收', owner: '张凯', status: '未回执', time: '--' },
+    ],
+    files: ['附件占位：热封温度趋势.png', '附件占位：夜班点检单.pdf'],
+  },
+  'HO-20260310-A1': {
+    fields: [
+      { label: '交接单号', value: 'HO-20260310-A1' },
+      { label: '交出 / 接收', value: '白班 A 组 → 夜班 B 组' },
+      { label: '接收状态', value: '已签收' },
+      { label: '签收时间', value: '03-10 18:52' },
+      { label: '未结项', value: '1 项观察项' },
+      { label: '附件', value: '首件照片 4 张' },
+      { label: '备注', value: '换型观察完成后可关闭' },
+    ],
+    receipts: [
+      { node: '交出确认', owner: '陈涛', status: '已完成', time: '18:49' },
+      { node: '班组接收', owner: '赵明', status: '已签收', time: '18:52' },
+    ],
+    files: ['换型首件照片.jpg', '换型参数单.pdf'],
+  },
+}
 
 function App() {
   const [page, setPage] = useState<PageId>('dashboard')
+  const [selectedDevice, setSelectedDevice] = useState(deviceCards[0].id)
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState(workOrders[0].id)
+  const [selectedSheet, setSelectedSheet] = useState(handoverSheets[0].id)
 
   const activeNav = useMemo(() => navItems.find((item) => item.id === page) ?? navItems[0], [page])
+  const deviceDetail = deviceDetailMap[selectedDevice]
+  const workOrderDetail = workOrderDetailMap[selectedWorkOrder]
+  const handoverDetail = handoverDetailMap[selectedSheet]
 
   return (
     <div className="app-shell">
@@ -332,56 +608,111 @@ function App() {
                 </div>
               </section>
 
-              <section className="card span-6 dense-card">
+              <section className="card span-7 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">责任分区</p>
-                    <h3>值守状态</h3>
+                    <p className="eyebrow">设备详情</p>
+                    <h3>设备列表 + 右侧详情面板</h3>
                   </div>
-                  <span className="panel-tag">Duty Board</span>
+                  <span className="panel-tag">Device Panel</span>
+                </div>
+                <div className="split-panel two-col-layout">
+                  <div className="selection-list">
+                    {deviceCards.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`selection-card ${selectedDevice === item.id ? 'active' : ''}`}
+                        onClick={() => setSelectedDevice(item.id)}
+                      >
+                        <div className="selection-header">
+                          <strong>{item.name}</strong>
+                          <span className="status-pill small">{item.status}</span>
+                        </div>
+                        <small>{item.area} / {item.id}</small>
+                        <div className="selection-meta">
+                          <span>{item.runtime}</span>
+                          <span>{item.owner}</span>
+                        </div>
+                        <div className="selection-meta">
+                          <span>{item.alarm}</span>
+                          <span>{item.workOrder}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="detail-panel">
+                    <div className="detail-toolbar">
+                      <span className="panel-tag">{deviceDetail.docNo}</span>
+                      <div className="hero-actions">
+                        <button type="button" className="secondary-btn">查看趋势</button>
+                        <button type="button" className="primary-btn" onClick={() => setPage('operations')}>转到工单</button>
+                      </div>
+                    </div>
+                    <div className="field-grid compact-grid">
+                      <div className="field-card"><span>文档编号</span><strong>{deviceDetail.docNo}</strong><small>版本 {deviceDetail.version}</small></div>
+                      <div className="field-card"><span>适用设备</span><strong>{deviceDetail.fit}</strong><small>{deviceDetail.model} / {deviceDetail.assetNo}</small></div>
+                      <div className="field-card"><span>当前节点</span><strong>{deviceDetail.currentNode}</strong><small>{deviceDetail.lastReference}</small></div>
+                      <div className="field-card"><span>最近维修</span><strong>{deviceDetail.lastRepair}</strong><small>责任链已同步到工单与交接</small></div>
+                    </div>
+                    <div className="detail-section">
+                      <div className="section-title slim-title">
+                        <h3>关键检查项</h3>
+                        <span className="panel-tag">4 项</span>
+                      </div>
+                      <div className="check-list">
+                        {deviceDetail.keyChecks.map((item) => <div key={item} className="check-row">{item}</div>)}
+                      </div>
+                    </div>
+                    <div className="detail-section">
+                      <div className="section-title slim-title">
+                        <h3>故障案例</h3>
+                        <span className="panel-tag">最近引用</span>
+                      </div>
+                      <div className="stack-list compact-list">
+                        {deviceDetail.cases.map((item) => (
+                          <article className="mini-card compact-card" key={item.code}>
+                            <span>{item.code}</span>
+                            <strong>{item.title}</strong>
+                            <small>{item.result}</small>
+                            <small>最近引用：{item.lastUsed}</small>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="card span-5 dense-card">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">现场记录</p>
+                    <h3>最近采样</h3>
+                  </div>
+                  <span className="panel-tag">Record Panel</span>
                 </div>
                 <div className="table-wrap">
                   <table>
                     <thead>
                       <tr>
-                        <th>模块</th>
-                        <th>责任人</th>
-                        <th>状态</th>
-                        <th>风险</th>
-                        <th>更新时间</th>
+                        <th>时间</th>
+                        <th>记录项</th>
+                        <th>值</th>
+                        <th>结果</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {dutyTable.map((item) => (
-                        <tr key={item.module}>
-                          <td>{item.module}</td>
-                          <td>{item.owner}</td>
-                          <td><span className="status-pill small">{item.status}</span></td>
-                          <td>{item.risk}</td>
-                          <td>{item.updated}</td>
+                      {deviceDetail.records.map((item) => (
+                        <tr key={`${item.time}-${item.item}`}>
+                          <td>{item.time}</td>
+                          <td>{item.item}</td>
+                          <td>{item.value}</td>
+                          <td>{item.result}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </div>
-              </section>
-
-              <section className="card span-6 dense-card">
-                <div className="section-title">
-                  <div>
-                    <p className="eyebrow">设备上下文</p>
-                    <h3>当前引用</h3>
-                  </div>
-                  <span className="panel-tag">Context</span>
-                </div>
-                <div className="memory-grid compact-grid">
-                  {contextPanels.map((item) => (
-                    <div className="memory-card" key={item.label}>
-                      <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                      <small>{item.detail}</small>
-                    </div>
-                  ))}
                 </div>
               </section>
             </div>
@@ -431,6 +762,45 @@ function App() {
                 </div>
               </section>
 
+              <section className="card span-5 dense-card">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">SOP / 案例</p>
+                    <h3>引用详情</h3>
+                  </div>
+                  <span className="panel-tag">Knowledge Sidecar</span>
+                </div>
+                <div className="field-grid compact-grid">
+                  <div className="field-card"><span>文档编号</span><strong>{deviceDetail.docNo}</strong><small>版本 {deviceDetail.version}</small></div>
+                  <div className="field-card"><span>适用设备</span><strong>{deviceDetail.fit}</strong><small>最近引用 {deviceDetail.lastReference}</small></div>
+                </div>
+                <div className="detail-section">
+                  <div className="section-title slim-title">
+                    <h3>关键检查项</h3>
+                    <span className="panel-tag">SOP</span>
+                  </div>
+                  <div className="check-list">
+                    {deviceDetail.keyChecks.map((item) => <div key={item} className="check-row">{item}</div>)}
+                  </div>
+                </div>
+                <div className="detail-section">
+                  <div className="section-title slim-title">
+                    <h3>相似案例</h3>
+                    <span className="panel-tag">Case</span>
+                  </div>
+                  <div className="stack-list compact-list">
+                    {deviceDetail.cases.map((item) => (
+                      <article className="mini-card compact-card" key={item.code}>
+                        <span>{item.code}</span>
+                        <strong>{item.title}</strong>
+                        <small>{item.result}</small>
+                        <small>最近引用：{item.lastUsed}</small>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
               <section className="card span-4 dense-card">
                 <div className="section-title">
                   <div>
@@ -447,27 +817,37 @@ function App() {
                     </div>
                   ))}
                 </div>
-              </section>
-
-              <section className="card span-4 dense-card">
-                <div className="section-title">
-                  <div>
-                    <p className="eyebrow">设备上下文</p>
-                    <h3>引用面板</h3>
+                <div className="detail-section">
+                  <div className="section-title slim-title">
+                    <h3>回执追踪</h3>
+                    <span className="panel-tag">Receipt</span>
+                  </div>
+                  <div className="table-wrap compact-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>节点</th>
+                          <th>人员</th>
+                          <th>时间</th>
+                          <th>状态</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assistantReceipts.map((item) => (
+                          <tr key={item.node}>
+                            <td>{item.node}</td>
+                            <td>{item.person}</td>
+                            <td>{item.time}</td>
+                            <td>{item.status}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-                <div className="memory-grid compact-grid">
-                  {contextPanels.slice(0, 4).map((item) => (
-                    <div className="memory-card" key={item.label}>
-                      <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                      <small>{item.detail}</small>
-                    </div>
-                  ))}
-                </div>
               </section>
 
-              <section className="card span-4 dense-card">
+              <section className="card span-3 dense-card">
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">待执行</p>
@@ -498,7 +878,7 @@ function App() {
 
           {page === 'operations' && (
             <div className="page-grid">
-              <section className="card span-12 dense-card">
+              <section className="card span-7 dense-card">
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">工单中心</p>
@@ -518,29 +898,27 @@ function App() {
                       <tr>
                         <th>工单号</th>
                         <th>任务</th>
-                        <th>等级</th>
-                        <th>责任人</th>
-                        <th>SLA</th>
                         <th>来源</th>
-                        <th>影响</th>
+                        <th>优先级</th>
+                        <th>责任人</th>
+                        <th>计划开始</th>
+                        <th>截止时间</th>
+                        <th>当前节点</th>
                         <th>状态</th>
-                        <th>进度</th>
-                        <th>更新时间</th>
                       </tr>
                     </thead>
                     <tbody>
                       {workOrders.map((item) => (
-                        <tr key={item.id}>
+                        <tr key={item.id} className={selectedWorkOrder === item.id ? 'table-active-row' : ''} onClick={() => setSelectedWorkOrder(item.id)}>
                           <td>{item.id}</td>
                           <td>{item.title}</td>
+                          <td>{item.source}</td>
                           <td>{item.level}</td>
                           <td>{item.owner}</td>
-                          <td>{item.sla}</td>
-                          <td>{item.source}</td>
-                          <td>{item.impact}</td>
+                          <td>{item.plannedStart}</td>
+                          <td>{item.deadline}</td>
+                          <td>{item.node}</td>
                           <td><span className="status-pill small">{item.state}</span></td>
-                          <td>{item.progress}</td>
-                          <td>{item.updated}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -551,6 +929,73 @@ function App() {
                   <button type="button" className="secondary-btn">催办</button>
                   <button type="button" className="secondary-btn">升级</button>
                   <button type="button" className="primary-btn">导出交接项</button>
+                </div>
+              </section>
+
+              <section className="card span-5 dense-card">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">工单详情</p>
+                    <h3>{selectedWorkOrder}</h3>
+                  </div>
+                  <span className="panel-tag">Detail Drawer</span>
+                </div>
+                <div className="field-grid compact-grid">
+                  {workOrderDetail.fields.map((item) => (
+                    <div className="field-card" key={item.label}>
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="detail-section">
+                  <div className="section-title slim-title">
+                    <h3>状态流转</h3>
+                    <span className="panel-tag">{workOrders.find((item) => item.id === selectedWorkOrder)?.progress}</span>
+                  </div>
+                  <div className="step-track">
+                    {workOrderDetail.steps.map((item) => (
+                      <div key={`${item.title}-${item.time}`} className="step-row">
+                        <div className="step-bullet" />
+                        <div>
+                          <strong>{item.title}</strong>
+                          <small>{item.owner} / {item.time}</small>
+                        </div>
+                        <span className="status-pill small">{item.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="detail-section">
+                  <div className="section-title slim-title">
+                    <h3>处理意见</h3>
+                    <span className="panel-tag">Notes</span>
+                  </div>
+                  <div className="stack-list compact-list">
+                    {workOrderDetail.opinions.map((item) => (
+                      <article className="mini-card compact-card" key={`${item.by}-${item.time}`}>
+                        <span>{item.by}</span>
+                        <strong>{item.text}</strong>
+                        <small>{item.time}</small>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+                <div className="detail-section">
+                  <div className="section-title slim-title">
+                    <h3>升级记录</h3>
+                    <span className="panel-tag">Escalation</span>
+                  </div>
+                  <div className="stack-list compact-list">
+                    {workOrderDetail.escalations.length ? workOrderDetail.escalations.map((item) => (
+                      <article className="mini-card compact-card" key={item.record}>
+                        <span>{item.record}</span>
+                        <strong>{item.from} → {item.to}</strong>
+                        <small>{item.reason}</small>
+                        <small>{item.time} / {item.status}</small>
+                      </article>
+                    )) : <div className="empty-note">当前工单暂无升级记录</div>}
+                  </div>
                 </div>
               </section>
 
@@ -643,6 +1088,105 @@ function App() {
                 </div>
               </section>
 
+              <section className="card span-4 dense-card">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">交接清单</p>
+                    <h3>签收单列表</h3>
+                  </div>
+                  <span className="panel-tag">Sheet</span>
+                </div>
+                <div className="selection-list">
+                  {handoverSheets.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`selection-card ${selectedSheet === item.id ? 'active' : ''}`}
+                      onClick={() => setSelectedSheet(item.id)}
+                    >
+                      <div className="selection-header">
+                        <strong>{item.id}</strong>
+                        <span className="status-pill small">{item.status}</span>
+                      </div>
+                      <small>{item.giver}</small>
+                      <div className="selection-meta"><span>接收：{item.receiver}</span><span>{item.signTime}</span></div>
+                      <div className="selection-meta"><span>{item.pending}</span><span>{item.attachment}</span></div>
+                      <small>{item.remark}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="card span-4 dense-card">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">交接详情</p>
+                    <h3>{selectedSheet}</h3>
+                  </div>
+                  <span className="panel-tag">Receipt Detail</span>
+                </div>
+                <div className="field-grid compact-grid">
+                  {handoverDetail.fields.map((item) => (
+                    <div className="field-card" key={item.label}>
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="detail-section">
+                  <div className="section-title slim-title">
+                    <h3>签收动作</h3>
+                    <span className="panel-tag">Action</span>
+                  </div>
+                  <div className="action-bar">
+                    <button type="button" className="secondary-btn">退回补充</button>
+                    <button type="button" className="secondary-btn">补充附件</button>
+                    <button type="button" className="primary-btn">确认签收</button>
+                  </div>
+                </div>
+                <div className="detail-section">
+                  <div className="section-title slim-title">
+                    <h3>附件 / 备注</h3>
+                    <span className="panel-tag">Placeholder</span>
+                  </div>
+                  <div className="stack-list compact-list">
+                    {handoverDetail.files.map((item) => <div key={item} className="check-row">{item}</div>)}
+                  </div>
+                </div>
+              </section>
+
+              <section className="card span-4 dense-card">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">接收确认</p>
+                    <h3>回执状态</h3>
+                  </div>
+                  <span className="panel-tag">Receipt</span>
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>节点</th>
+                        <th>责任人</th>
+                        <th>状态</th>
+                        <th>时间</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {handoverDetail.receipts.map((item) => (
+                        <tr key={`${item.node}-${item.owner}`}>
+                          <td>{item.node}</td>
+                          <td>{item.owner}</td>
+                          <td>{item.status}</td>
+                          <td>{item.time}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
               <section className="card span-7 dense-card">
                 <div className="section-title">
                   <div>
@@ -662,40 +1206,6 @@ function App() {
               </section>
 
               <section className="card span-5 dense-card">
-                <div className="section-title">
-                  <div>
-                    <p className="eyebrow">接收确认</p>
-                    <h3>回执状态</h3>
-                  </div>
-                  <span className="panel-tag">Receipt</span>
-                </div>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>岗位</th>
-                        <th>人员</th>
-                        <th>动作</th>
-                        <th>时间</th>
-                        <th>状态</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {receiptRows.map((item) => (
-                        <tr key={item.role}>
-                          <td>{item.role}</td>
-                          <td>{item.person}</td>
-                          <td>{item.action}</td>
-                          <td>{item.time}</td>
-                          <td>{item.status}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
-              <section className="card span-6 dense-card">
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">未结项</p>
@@ -751,6 +1261,40 @@ function App() {
                       </div>
                     </article>
                   ))}
+                </div>
+              </section>
+
+              <section className="card span-6 dense-card">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">接收矩阵</p>
+                    <h3>岗位回执</h3>
+                  </div>
+                  <span className="panel-tag">Matrix</span>
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>岗位</th>
+                        <th>人员</th>
+                        <th>动作</th>
+                        <th>时间</th>
+                        <th>状态</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {receiptRows.map((item) => (
+                        <tr key={item.role}>
+                          <td>{item.role}</td>
+                          <td>{item.person}</td>
+                          <td>{item.action}</td>
+                          <td>{item.time}</td>
+                          <td>{item.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </section>
             </div>
