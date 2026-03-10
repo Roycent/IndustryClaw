@@ -599,22 +599,22 @@ function App() {
           <div className="mini-card compact-card emphasis">
             <span>最急</span>
             <strong>包装机 3 号补派张凯</strong>
-            <small>班组长助手已拉起 4 个 agents 联动判断</small>
+            <small>电气不到场，现场判断卡住</small>
           </div>
           <div className="mini-card compact-card">
             <span>未回</span>
             <strong>BAC-2 / 王超</strong>
-            <small>工单协调 + 能耗异常双 agent 盯催</small>
+            <small>已超时，未回直接升级刘凯</small>
           </div>
           <div className="mini-card compact-card">
             <span>带班交</span>
             <strong>白班先看 2 项</strong>
-            <small>交接整理 agent 已写好承接顺序</small>
+            <small>温控评估和首小时复核</small>
           </div>
           <div className="mini-card compact-card">
-            <span>体系</span>
-            <strong>10 agents / 30 skills</strong>
-            <small>不是单 bot，而是按岗位分工协作</small>
+            <span>依据</span>
+            <strong>停机 / 工单 / 交接</strong>
+            <small>本班判断都按现场记录落单</small>
           </div>
         </div>
       </aside>
@@ -627,7 +627,7 @@ function App() {
           </div>
           <div className="topbar-right">
             <div className="status-pill ok">本班在线</div>
-            <div className="status-pill info">10 个 agents 已编排</div>
+            <div className="status-pill info">重点事项处理中</div>
             <div className="status-pill">夜班 B 组 / 赵明</div>
           </div>
         </header>
@@ -649,11 +649,11 @@ function App() {
                     </div>
                     <div className="orchestration-strip">
                       <div>
-                        <span className="side-label">当前编排 agents</span>
+                        <span className="side-label">当前来源</span>
                         {renderAgentChips(devices[0].activeAgentIds)}
                       </div>
                       <div>
-                        <span className="side-label">当前落地 skills</span>
+                        <span className="side-label">当前依据</span>
                         {renderSkillChips(devices[0].activeSkillIds)}
                       </div>
                     </div>
@@ -661,7 +661,7 @@ function App() {
                   <div className="hero-actions">
                     <button type="button" className="primary-btn" onClick={() => setPage('assistant')}>查看卡点</button>
                     <button type="button" className="secondary-btn" onClick={() => setPage('workorders')}>去工单处理</button>
-                    <button type="button" className="secondary-btn" onClick={() => setPage('orchestration')}>看 agent 调度</button>
+                    <button type="button" className="secondary-btn" onClick={() => setPage('orchestration')}>看处置链</button>
                   </div>
                 </div>
                 <div className="stat-grid">
@@ -693,7 +693,7 @@ function App() {
                           <span>{task.priority}</span>
                         </div>
                         <p>{task.note}</p>
-                        <small>{task.state} / 当前主责 agent：{task.agent}</small>
+                        <small>{task.state} / 当前承接：{task.agent}</small>
                       </div>
                       <div className="task-meta">
                         <strong>{task.owner}</strong>
@@ -707,10 +707,10 @@ function App() {
               <section className="card span-5 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">调度概览</p>
-                    <h3>多智能体编排</h3>
+                    <p className="eyebrow">处置链</p>
+                    <h3>今晚谁在接</h3>
                   </div>
-                  <span className="panel-tag">值班系统不是单 bot</span>
+                  <span className="panel-tag">看责任，不看说法</span>
                 </div>
                 <div className="stack-list compact-list">
                   {agentCards.slice(0, 5).map((agent) => (
@@ -765,7 +765,7 @@ function App() {
                       </div>
                       <small>{item.risk}</small>
                       <div className="selection-meta"><span>{item.impact}</span><span>{item.owner}</span></div>
-                      <div className="selection-meta"><span>{item.activeAgentIds.length} 个 agents 在看</span><span>{item.activeSkillIds.length} 个 skills 已调用</span></div>
+                      <div className="selection-meta"><span>来源 {item.activeAgentIds.length} 项</span><span>依据 {item.activeSkillIds.length} 项</span></div>
                     </button>
                   ))}
                 </div>
@@ -785,11 +785,11 @@ function App() {
                 </div>
                 <div className="agent-inline-panel">
                   <div>
-                    <span className="side-label">主责 agent</span>
+                    <span className="side-label">来源</span>
                     {renderAgentChips([selectedWorkOrderDetail.agentId, 'agent-shift'])}
                   </div>
                   <div>
-                    <span className="side-label">已调用 skills</span>
+                    <span className="side-label">依据</span>
                     {renderSkillChips(selectedWorkOrderDetail.skillIds)}
                   </div>
                 </div>
@@ -858,11 +858,11 @@ function App() {
                     </div>
                     <div className="agent-inline-panel">
                       <div>
-                        <span className="side-label">当前调用 agents</span>
+                        <span className="side-label">当前来源</span>
                         {renderAgentChips(focusDetail.activeAgentIds)}
                       </div>
                       <div>
-                        <span className="side-label">当前调用 skills</span>
+                        <span className="side-label">当前依据</span>
                         {renderSkillChips(focusDetail.activeSkillIds)}
                       </div>
                     </div>
@@ -873,10 +873,10 @@ function App() {
               <section className="card span-5 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">当前编排</p>
+                    <p className="eyebrow">当前承接</p>
                     <h3>谁在盯这班</h3>
                   </div>
-                  <span className="panel-tag">按岗位分工，不是一个 bot 包打天下</span>
+                  <span className="panel-tag">看谁接，不看架构</span>
                 </div>
                 <div className="stack-list compact-list">
                   {agentBoard.map((agent) => (
@@ -884,7 +884,7 @@ function App() {
                       <span>{agent.role}</span>
                       <strong>{agent.name}</strong>
                       <small>{agent.focus}</small>
-                      <div className="selection-meta"><span>{agent.state}</span><span>本班触达 {agent.usage} 次</span></div>
+                      <div className="selection-meta"><span>{agent.state}</span><span>本班涉及 {agent.usage} 次</span></div>
                     </article>
                   ))}
                 </div>
@@ -913,7 +913,7 @@ function App() {
                         <th>工单号</th>
                         <th>任务</th>
                         <th>责任人</th>
-                        <th>主责 agent</th>
+                        <th>来源</th>
                         <th>回执</th>
                         <th>卡点</th>
                         <th>几点前</th>
@@ -962,11 +962,11 @@ function App() {
                 </div>
                 <div className="agent-inline-panel">
                   <div>
-                    <span className="side-label">主责 agent</span>
+                    <span className="side-label">来源</span>
                     {renderAgentChips([selectedWorkOrderDetail.agentId])}
                   </div>
                   <div>
-                    <span className="side-label">支撑 skills</span>
+                    <span className="side-label">依据</span>
                     {renderSkillChips(selectedWorkOrderDetail.skillIds)}
                   </div>
                 </div>
@@ -997,7 +997,7 @@ function App() {
                       </div>
                       <p>{alert.source} / {alert.owner}</p>
                       <small>{alert.block} / {alert.currentAction}</small>
-                      <div className="selection-meta"><span>{agentLookup[alert.agentId]?.name}</span><span>{alert.skillIds.length} 个 skills 已命中</span></div>
+                      <div className="selection-meta"><span>{agentLookup[alert.agentId]?.name}</span><span>{alert.skillIds.length} 项依据</span></div>
                     </button>
                   ))}
                 </div>
@@ -1074,7 +1074,7 @@ function App() {
                       <tr>
                         <th>事项</th>
                         <th>接班责任人</th>
-                        <th>主责 agent</th>
+                        <th>来源</th>
                         <th>几点前处理</th>
                         <th>未闭环</th>
                         <th>谁没回</th>
@@ -1125,10 +1125,10 @@ function App() {
               <section className="card span-12 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">多智能体调度</p>
-                    <h3>班组长工作台里的 agent + skill 体系</h3>
+                    <p className="eyebrow">处置总览</p>
+                    <h3>今晚这班的来源、依据和承接</h3>
                   </div>
-                  <span className="panel-tag">看得见分工，也看得见怎么落到现场动作</span>
+                  <span className="panel-tag">先看哪件事由谁接、按什么判断</span>
                 </div>
                 <div className="summary-grid">
                   {orchestrationSummary.map((item) => (
@@ -1140,10 +1140,10 @@ function App() {
               <section className="card span-7 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">agents 值班面板</p>
-                    <h3>10 个 agents 的现场分工</h3>
+                    <p className="eyebrow">当前承接</p>
+                    <h3>今晚谁在接这些事</h3>
                   </div>
-                  <span className="panel-tag">按岗位组织，不做概念堆砌</span>
+                  <span className="panel-tag">按责任拆开看</span>
                 </div>
                 <div className="agent-grid">
                   {agentBoard.map((agent) => (
@@ -1155,10 +1155,10 @@ function App() {
                         </div>
                         <span className="status-pill small">{agent.state}</span>
                       </div>
-                      <small>{agent.desc}</small>
-                      <div className="selection-meta"><span>{agent.shift}</span><span>{agent.pending} 项待处理 / 本班触达 {agent.usage} 次</span></div>
+                      <small>{agent.focus}</small>
+                      <div className="selection-meta"><span>{agent.shift}</span><span>{agent.pending} 项待处理 / 本班涉及 {agent.usage} 次</span></div>
                       <div>
-                        <span className="side-label">常用 skills</span>
+                        <span className="side-label">常用依据</span>
                         {renderSkillChips(agent.skills)}
                       </div>
                     </article>
@@ -1169,33 +1169,33 @@ function App() {
               <section className="card span-5 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">调度轨迹</p>
-                    <h3>今晚怎么编排</h3>
+                    <p className="eyebrow">处置顺序</p>
+                    <h3>今晚先后怎么接</h3>
                   </div>
-                  <span className="panel-tag">更像生产系统里的派工链</span>
+                  <span className="panel-tag">先保线，再补回执，再交白班</span>
                 </div>
                 <div className="step-track">
-                  <div className="step-row"><span className="step-bullet" /><div><strong>1. 班组长助手拉总控</strong><div className="msg">先把停机、超时、白班承接排优先级。</div></div></div>
-                  <div className="step-row"><span className="step-bullet" /><div><strong>2. 设备异常分析 + 停机归因并行</strong><div className="msg">包装机 3 号同步看根因、责任归口和影响范围。</div></div></div>
-                  <div className="step-row"><span className="step-bullet" /><div><strong>3. 工单协调追人追回执</strong><div className="msg">王超未回时，催回执与升级阈值判断一起跑。</div></div></div>
-                  <div className="step-row"><span className="step-bullet" /><div><strong>4. 交接整理收口</strong><div className="msg">把未稳设备、未闭环事项写给白班先看。</div></div></div>
+                  <div className="step-row"><span className="step-bullet" /><div><strong>先处理包装机 3 号</strong><div className="msg">短停重复，先补电气，盯现场结论。</div></div></div>
+                  <div className="step-row"><span className="step-bullet" /><div><strong>再催 BAC-2 回执</strong><div className="msg">王超未回，超过时点就升级刘凯。</div></div></div>
+                  <div className="step-row"><span className="step-bullet" /><div><strong>空压站窗口今晚定</strong><div className="msg">周宁不回，直接带班交给白班计划。</div></div></div>
+                  <div className="step-row"><span className="step-bullet" /><div><strong>收班前交白班</strong><div className="msg">未稳设备和未闭环项全部写进交接清单。</div></div></div>
                 </div>
               </section>
 
               <section className="card span-12 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">skills 模块</p>
-                    <h3>30 个 skills 按现场场景组织</h3>
+                    <p className="eyebrow">判断依据</p>
+                    <h3>今晚这班主要按这些信息拍板</h3>
                   </div>
-                  <span className="panel-tag">不是一大串名单，而是可挂到岗位上的能力块</span>
+                  <span className="panel-tag">不是看说明，看依据</span>
                 </div>
                 <div className="skill-group-grid">
                   {skillGroups.map((group) => (
                     <div key={group.category} className={`skill-group skill-${group.color}`}>
                       <div className="section-title slim-title">
                         <div>
-                          <p className="eyebrow">{group.skills.length} 个 skills</p>
+                          <p className="eyebrow">{group.skills.length} 项</p>
                           <h3>{group.category}</h3>
                         </div>
                       </div>
