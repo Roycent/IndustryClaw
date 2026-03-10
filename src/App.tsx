@@ -56,7 +56,7 @@ type FocusTarget = { type: ItemType; id: string }
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: '首页 / 当班总览', short: '首页', desc: '班组长当前班：分派、催办、升级、加入交接' },
-  { id: 'assistant', label: '设备助手', short: '设备助手', desc: '点异常 / 任务，右侧看推荐动作和责任链' },
+  { id: 'assistant', label: '设备助手', short: '设备助手', desc: '异常、工单、责任链' },
   { id: 'workorders', label: '工单中心', short: '工单中心', desc: '催回执、分派、升级、加入交接' },
   { id: 'handover', label: '交接页', short: '交接页', desc: '收口交接项、接班人、接收状态' },
 ]
@@ -282,7 +282,7 @@ function App() {
       title: alert.title,
       subtitle: `${alert.level} / ${alert.source}`,
       summary: `当前状态：${alert.state}；责任：${alert.owner}；更新时间：${alert.updated}`,
-      cause: '点异常后直接给班组长推荐动作与责任链。',
+      cause: '责任链已挂起，待班组长拍板。',
       recommendation: alert.recommendation,
       chain: alert.chain,
       actionNote: alert.recommendation[0],
@@ -297,9 +297,9 @@ function App() {
 
     return [
       { label: '待分派', value: String(pendingAssign), note: '先补派电气，再盯现场结论' },
-      { label: '待回执', value: String(pendingReceipt), note: '可直接点催回执，状态即刻变化' },
-      { label: '待升级', value: String(pendingEscalate), note: '满足规则后写入升级记录' },
-      { label: '交接项', value: String(pendingHandover), note: '点加入交接后立刻出现在交接页' },
+      { label: '待回执', value: String(pendingReceipt), note: '先催回执，超时再升级' },
+      { label: '待升级', value: String(pendingEscalate), note: '满足规则即升级并留痕' },
+      { label: '交接项', value: String(pendingHandover), note: '未结项带入交接并等签收' },
     ]
   }, [handoverTasks, workOrders])
 
@@ -416,17 +416,17 @@ function App() {
           <div className="mini-card compact-card emphasis">
             <span>先补派</span>
             <strong>包装机 3 号补派张凯</strong>
-            <small>分派后工单状态立即变化</small>
+            <small>补派后责任人到位</small>
           </div>
           <div className="mini-card compact-card">
             <span>先催办</span>
             <strong>BAC-2 / 空压站 A</strong>
-            <small>点催回执后，状态从待回执变已催办</small>
+            <small>待回执先催，超时再升</small>
           </div>
           <div className="mini-card compact-card">
             <span>收班前</span>
             <strong>未闭环项加入交接</strong>
-            <small>加入后交接列表即时出现</small>
+            <small>未结项直接带交接</small>
           </div>
         </div>
       </aside>
@@ -439,7 +439,7 @@ function App() {
           </div>
           <div className="topbar-right">
             <div className="status-pill ok">本班在线</div>
-            <div className="status-pill info">可点击原型</div>
+            <div className="status-pill info">当班操作中</div>
             <div className="status-pill">夜班 B 组 / 赵明</div>
           </div>
         </header>
@@ -456,11 +456,11 @@ function App() {
                       <span className="filter-chip">夜班 B 组</span>
                       <span className="filter-chip">班组长 赵明</span>
                       <span className="filter-chip">P1-P2</span>
-                      <span className="filter-chip">班组长动作原型</span>
+                      <span className="filter-chip">分派 / 催办 / 升级 / 交接</span>
                     </div>
                   </div>
                   <div className="hero-actions">
-                    <button type="button" className="primary-btn" onClick={() => setPage('assistant')}>看推荐动作</button>
+                    <button type="button" className="primary-btn" onClick={() => setPage('assistant')}>看责任链</button>
                     <button type="button" className="secondary-btn" onClick={() => setPage('workorders')}>去工单中心操作</button>
                     <button type="button" className="secondary-btn" onClick={() => setPage('handover')}>去交接页收口</button>
                   </div>
@@ -509,7 +509,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">班组长操作回放</p>
-                    <h3>点击后的状态变化</h3>
+                    <h3>动作留痕</h3>
                   </div>
                   <span className="panel-tag">最新 8 条</span>
                 </div>
@@ -524,7 +524,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">重点设备</p>
-                    <h3>点设备，右侧看责任链与动作</h3>
+                    <h3>异常入口</h3>
                   </div>
                   <span className="panel-tag">设备异常入口</span>
                 </div>
@@ -557,7 +557,7 @@ function App() {
                     <p className="eyebrow">快捷动作</p>
                     <h3>{selectedWorkOrderDetail.id}</h3>
                   </div>
-                  <span className="panel-tag">班组长直接点</span>
+                  <span className="panel-tag">当班处置</span>
                 </div>
                 <div className="field-grid compact-grid">
                   <div className="field-card"><span>任务</span><strong>{selectedWorkOrderDetail.title}</strong><small>{selectedWorkOrderDetail.nextAction}</small></div>
@@ -578,10 +578,10 @@ function App() {
               <section className="card span-7 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">可点击异常 / 任务</p>
-                    <h3>点左侧对象，右侧直接给班组长推荐动作与责任链</h3>
+                    <p className="eyebrow">异常 / 工单</p>
+                    <h3>待拍板事项</h3>
                   </div>
-                  <span className="panel-tag">原型交互</span>
+                  <span className="panel-tag">责任链在岗</span>
                 </div>
                 <div className="split-panel assistant-split">
                   <div className="selection-list">
@@ -611,14 +611,14 @@ function App() {
                   <div className="detail-panel sticky-panel">
                     <div className="section-title slim-title">
                       <div>
-                        <p className="eyebrow">右侧决策面板</p>
+                        <p className="eyebrow">处置面板</p>
                         <h3>{focusDetail.title}</h3>
                       </div>
                       <span className="panel-tag">{focusDetail.subtitle}</span>
                     </div>
                     <div className="field-grid compact-grid">
                       <div className="field-card"><span>当前摘要</span><strong>{focusDetail.summary}</strong><small>{focusDetail.cause}</small></div>
-                      <div className="field-card"><span>班组长下一步</span><strong>{focusDetail.actionNote}</strong><small>少解释，多动作与状态</small></div>
+                      <div className="field-card"><span>班组长下一步</span><strong>{focusDetail.actionNote}</strong><small>先动作，再等回执</small></div>
                     </div>
                     <div className="detail-section">
                       <div className="section-title slim-title"><h3>推荐动作</h3><span className="panel-tag">可执行</span></div>
@@ -640,7 +640,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">班组长动作条</p>
-                    <h3>围绕常见动作</h3>
+                    <h3>当班动作</h3>
                   </div>
                   <span className="panel-tag">分派 / 催办 / 升级 / 交接</span>
                 </div>
@@ -669,12 +669,12 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">工单中心</p>
-                    <h3>点行选中，再执行班组长动作</h3>
+                    <h3>待分派 / 待回执 / 待升级</h3>
                   </div>
                   <div className="filter-row tight">
                     <span className="filter-chip">本班</span>
                     <span className="filter-chip">P1-P2</span>
-                    <span className="filter-chip">可点击原型</span>
+                    <span className="filter-chip">当班队列</span>
                   </div>
                 </div>
                 <div className="table-wrap">
@@ -719,7 +719,7 @@ function App() {
                     <p className="eyebrow">工单详情</p>
                     <h3>{selectedWorkOrderDetail.id}</h3>
                   </div>
-                  <span className="panel-tag">班组长决策抽屉</span>
+                  <span className="panel-tag">责任人 / 回执 / 交接</span>
                 </div>
                 <div className="field-grid compact-grid">
                   <div className="field-card"><span>任务</span><strong>{selectedWorkOrderDetail.title}</strong></div>
@@ -735,9 +735,9 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">异常列表</p>
-                    <h3>点异常后可切去助手页看责任链</h3>
+                    <h3>异常待拍板</h3>
                   </div>
-                  <span className="panel-tag">可点击异常</span>
+                  <span className="panel-tag">异常入口</span>
                 </div>
                 <div className="alert-list compact-list">
                   {alerts.map((alert) => (
@@ -765,7 +765,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">升级记录</p>
-                    <h3>点升级后即时写入</h3>
+                    <h3>升级留痕</h3>
                   </div>
                   <span className="panel-tag">升级面板</span>
                 </div>
@@ -803,7 +803,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">交接页</p>
-                    <h3>加入交接后的工单，会立刻进入待接收清单</h3>
+                    <h3>未结项待签收</h3>
                   </div>
                   <div className="action-bar compact-actions">
                     <button type="button" className="secondary-btn" onClick={() => setPage('workorders')}>返回工单继续处理</button>
@@ -822,9 +822,9 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">交接列表</p>
-                    <h3>本班待带出事项</h3>
+                    <h3>待交接事项</h3>
                   </div>
-                  <span className="panel-tag">实时同步</span>
+                  <span className="panel-tag">待签收</span>
                 </div>
                 <div className="table-wrap">
                   <table>
@@ -858,14 +858,14 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">交班口径</p>
-                    <h3>班组长收口提示</h3>
+                    <h3>交班口径</h3>
                   </div>
-                  <span className="panel-tag">系统风格</span>
+                  <span className="panel-tag">交班必带</span>
                 </div>
                 <div className="stack-list compact-list">
-                  <div className="mini-card compact-card"><span>先说清</span><strong>影响产线项</strong><small>包装机 3 号优先交清责任链</small></div>
-                  <div className="mini-card compact-card"><span>再说清</span><strong>未回执与已升级项</strong><small>BAC-2 若已升级，直接带升级链</small></div>
-                  <div className="mini-card compact-card"><span>最后确认</span><strong>白班接班人</strong><small>交接页只保留班组长收口动作</small></div>
+                  <div className="mini-card compact-card"><span>先报</span><strong>影响产线项</strong><small>包装机 3 号先交责任链</small></div>
+                  <div className="mini-card compact-card"><span>再报</span><strong>未回执 / 已升级</strong><small>BAC-2 带升级链和处理意见</small></div>
+                  <div className="mini-card compact-card"><span>确认</span><strong>接班人</strong><small>白班签收未结项</small></div>
                 </div>
               </section>
             </div>
