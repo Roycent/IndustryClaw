@@ -16,9 +16,13 @@ type DeviceItem = {
   owner: string
   workOrderId: string
   summary: string
-  cause: string
-  recommendation: string[]
-  chain: string[]
+  block: string
+  currentOwner: string
+  nextOwner: string
+  overtime: string
+  currentAction: string
+  productionImpact: string
+  escalated: string
 }
 type WorkOrderItem = {
   id: string
@@ -46,19 +50,36 @@ type AlertItem = {
   owner: string
   state: string
   updated: string
-  recommendation: string[]
-  chain: string[]
+  block: string
+  currentOwner: string
+  nextOwner: string
+  overtime: string
+  currentAction: string
+  productionImpact: string
+  escalated: string
 }
 type EscalationRecord = { record: string; item: string; from: string; to: string; rule: string; status: string; updated: string }
 type HandoverTask = { id: string; item: string; owner: string; due: string; state: string; receipt: string; source: string }
 
 type FocusTarget = { type: ItemType; id: string }
+type FocusDetail = {
+  title: string
+  subtitle: string
+  summary: string
+  block: string
+  currentOwner: string
+  nextOwner: string
+  overtime: string
+  currentAction: string
+  productionImpact: string
+  escalated: string
+}
 
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: '首页 / 当班总览', short: '首页', desc: '班组长当前班：分派、催办、升级、加入交接' },
-  { id: 'assistant', label: '设备助手', short: '设备助手', desc: '异常、工单、责任链' },
-  { id: 'workorders', label: '工单中心', short: '工单中心', desc: '催回执、分派、升级、加入交接' },
-  { id: 'handover', label: '交接页', short: '交接页', desc: '收口交接项、接班人、接收状态' },
+  { id: 'dashboard', label: '首页 / 当班总览', short: '首页', desc: '当前班最急事项和当班动作' },
+  { id: 'assistant', label: '设备助手', short: '设备助手', desc: '设备、工单、异常卡点' },
+  { id: 'workorders', label: '工单中心', short: '工单中心', desc: '分派、催办、升级、交接' },
+  { id: 'handover', label: '交接页', short: '交接页', desc: '必交项、待签收、接班确认' },
 ]
 
 const devices: DeviceItem[] = [
@@ -71,9 +92,13 @@ const devices: DeviceItem[] = [
     owner: '李强在场 / 张凯待补派',
     workOrderId: 'WO-20260310-118',
     summary: '换型后热封温度波动叠加导轨卡滞，短停重复出现。',
-    cause: '主因偏向温控模块接线不稳 + 导轨阻尼异常。',
-    recommendation: ['先补派张凯', '22:36 前催现场结论', '若再停 1 次立即升级', '白班必须接交'],
-    chain: ['班组长赵明', '机修李强处理中', '电气张凯待分派', '白班陈涛待接收'],
+    block: '电气未到场，温控接线还没复核。',
+    currentOwner: '机修 李强',
+    nextOwner: '电气 张凯',
+    overtime: '22:36 前要出现场结论',
+    currentAction: '补派张凯并盯首轮处理',
+    productionImpact: '是，已影响包装线节拍',
+    escalated: '再停 1 次立即升级设备主管',
   },
   {
     id: 'BAC-2-CHL',
@@ -84,9 +109,13 @@ const devices: DeviceItem[] = [
     owner: '王超未回 / 刘凯待升级',
     workOrderId: 'WO-20260310-107',
     summary: '夜间负荷稳定，BAC-2 能耗持续偏高，责任人未回执。',
-    cause: '可能为旁通阀误开或联动异常，需先补回执。',
-    recommendation: ['立即催王超回执', '10 分钟内仍未回则升级刘凯', '收班前未闭环则加入交接'],
-    chain: ['班组长赵明', '责任人王超未回执', '维修负责人刘凯待接升级', '白班公辅班待知会'],
+    block: '责任人王超还没回执，无法确认现场状态。',
+    currentOwner: '王超',
+    nextOwner: '刘凯',
+    overtime: '已超 28 分钟',
+    currentAction: '再催一次，未回直接升级',
+    productionImpact: '否，暂不影响运行',
+    escalated: '否，下一次催办失败后升级',
   },
   {
     id: 'AIR-A-01',
@@ -97,9 +126,13 @@ const devices: DeviceItem[] = [
     owner: '周宁待回停机窗口',
     workOrderId: 'WO-20260310-112',
     summary: '滤芯寿命逼近阈值，当前风险在于停机窗口还没定。',
-    cause: '不是故障，是保养窗口未确认。',
-    recommendation: ['催周宁回窗口', '23:00 前无结论加入交接', '白班排程前不建议升级'],
-    chain: ['班组长赵明', '责任人周宁', '白班保养计划待接收'],
+    block: '白班停机窗口没人确认。',
+    currentOwner: '周宁',
+    nextOwner: '白班保养计划',
+    overtime: '23:00 前必须给窗口',
+    currentAction: '催回复停机窗口',
+    productionImpact: '否，当前不影响产线',
+    escalated: '否，先带入交接',
   },
 ]
 
@@ -179,12 +212,17 @@ const initialAlerts: AlertItem[] = [
     title: '包装机 3 号 2 小时停机 5 次',
     deviceId: 'PKG-03-HS',
     level: '高',
-    source: '规则链',
+    source: '规则触发',
     owner: '李强 / 张凯待派',
     state: '待班组长拍板',
     updated: '22:24',
-    recommendation: ['补派电气', '决定是否停机', '同步白班交接'],
-    chain: ['赵明拍板', '李强处理', '张凯待分派', '白班陈涛待接'],
+    block: '电气还没接手，根因判断卡住。',
+    currentOwner: '李强',
+    nextOwner: '张凯',
+    overtime: '22:36 前必须补人',
+    currentAction: '补派电气并决定是否停机',
+    productionImpact: '是，已影响产线',
+    escalated: '未升级，再停一次即升',
   },
   {
     id: 'ALT-107',
@@ -195,8 +233,13 @@ const initialAlerts: AlertItem[] = [
     owner: '王超',
     state: '待升级',
     updated: '21:58',
-    recommendation: ['催回执', '直接升级刘凯', '收班前未闭环则进交接'],
-    chain: ['赵明催办', '王超未回', '刘凯待接升级'],
+    block: '责任人超时未回。',
+    currentOwner: '王超',
+    nextOwner: '刘凯',
+    overtime: '已超 28 分钟',
+    currentAction: '催回执或直接升级',
+    productionImpact: '否，当前不影响产线',
+    escalated: '否',
   },
   {
     id: 'ALT-112',
@@ -207,8 +250,13 @@ const initialAlerts: AlertItem[] = [
     owner: '周宁',
     state: '待回执',
     updated: '22:10',
-    recommendation: ['催停机窗口', '23:00 前无结论加入交接'],
-    chain: ['赵明催办', '周宁待回执', '白班保养计划待接收'],
+    block: '白班停机窗口未确认。',
+    currentOwner: '周宁',
+    nextOwner: '白班保养计划',
+    overtime: '23:00 前给结论',
+    currentAction: '催窗口，收班前未定就交接',
+    productionImpact: '否，影响白班排程',
+    escalated: '否，先交接',
   },
 ]
 
@@ -217,8 +265,8 @@ const initialEscalations: EscalationRecord[] = [
 ]
 
 const initialHandoverTasks: HandoverTask[] = [
-  { id: 'HO-TASK-116', item: '温控模块更换评估', owner: '白班 张凯', due: '06:30', state: '待接收', receipt: '未回执', source: 'WO-20260310-116' },
-  { id: 'HO-TASK-CHECK', item: '包装机 3 号首小时复核', owner: '白班班组长 陈涛', due: '08:00', state: '待确认', receipt: '待接收', source: '班组长口头交接' },
+  { id: 'HO-TASK-116', item: '温控模块更换评估', owner: '白班 张凯', due: '06:30', state: '待签收', receipt: '未回执', source: 'WO-20260310-116' },
+  { id: 'HO-TASK-CHECK', item: '包装机 3 号首小时复核', owner: '白班班组长 陈涛', due: '08:00', state: '待确认', receipt: '待签收', source: '班组长交接单' },
 ]
 
 function App() {
@@ -231,49 +279,42 @@ function App() {
   const [escalations, setEscalations] = useState(initialEscalations)
   const [handoverTasks, setHandoverTasks] = useState(initialHandoverTasks)
   const [activityLog, setActivityLog] = useState<string[]>([
-    '22:24 班组长打开工作台，当前待处理：补派 / 催办 / 升级 / 交接。',
+    '22:24 当班打开工作台，当前最急：包装机 3 号补派电气。',
   ])
 
   const activeNav = useMemo(() => navItems.find((item) => item.id === page) ?? navItems[0], [page])
-  const selectedDeviceDetail = devices.find((item) => item.id === selectedDevice) ?? devices[0]
   const selectedWorkOrderDetail = workOrders.find((item) => item.id === selectedWorkOrder) ?? workOrders[0]
 
-  const focusDetail = useMemo(() => {
+  const focusDetail = useMemo<FocusDetail>(() => {
     if (focusTarget.type === 'device') {
       const device = devices.find((item) => item.id === focusTarget.id) ?? devices[0]
-      const linked = workOrders.find((item) => item.id === device.workOrderId)
       return {
         title: device.name,
-        subtitle: `${device.area} / ${linked?.id ?? ''}`,
+        subtitle: `${device.area} / ${device.workOrderId}`,
         summary: device.summary,
-        cause: device.cause,
-        recommendation: device.recommendation,
-        chain: device.chain,
-        actionNote: linked?.nextAction ?? '待班组长拍板',
+        block: device.block,
+        currentOwner: device.currentOwner,
+        nextOwner: device.nextOwner,
+        overtime: device.overtime,
+        currentAction: device.currentAction,
+        productionImpact: device.productionImpact,
+        escalated: device.escalated,
       }
     }
 
     if (focusTarget.type === 'workorder') {
       const workOrder = workOrders.find((item) => item.id === focusTarget.id) ?? workOrders[0]
-      const device = devices.find((item) => item.id === workOrder.deviceId)
       return {
         title: `${workOrder.id} / ${workOrder.title}`,
         subtitle: `${workOrder.level} / ${workOrder.device}`,
-        summary: `当前状态：${workOrder.status}；回执：${workOrder.receipt}；截止：${workOrder.deadline}`,
-        cause: `责任人：${workOrder.owner}；下一步：${workOrder.nextAction}`,
-        recommendation: [
-          workOrder.queuedAction === '待分派' ? '优先完成分派' : '维持当前责任人',
-          workOrder.receipt === '待回执' || workOrder.receipt === '已催办' ? '继续催办回执' : '回执已更新',
-          workOrder.escalated ? '升级已写入记录' : '满足规则时可升级',
-          workOrder.inHandover ? '已带入交接' : '必要时加入交接',
-        ],
-        chain: [
-          `班组长赵明`,
-          `当前责任人 ${workOrder.owner}`,
-          workOrder.escalationTo ? `升级对象 ${workOrder.escalationTo}` : '暂无升级对象',
-          `接班责任人 ${workOrder.handoverOwner}`,
-        ],
-        actionNote: workOrder.nextAction,
+        summary: `状态 ${workOrder.status}，回执 ${workOrder.receipt}，截止 ${workOrder.deadline}`,
+        block: workOrder.receipt === '待回执' || workOrder.receipt === '已催办' ? '责任人还没给回执。' : '现场在处理，等结果回传。',
+        currentOwner: workOrder.owner,
+        nextOwner: workOrder.escalationTo ?? workOrder.handoverOwner,
+        overtime: `${workOrder.deadline} 前要有结果`,
+        currentAction: workOrder.nextAction,
+        productionImpact: workOrder.level === 'P1' ? '是，优先保产线' : '否，先控风险',
+        escalated: workOrder.escalated ? '是，已升级处理中' : '否',
       }
     }
 
@@ -281,11 +322,14 @@ function App() {
     return {
       title: alert.title,
       subtitle: `${alert.level} / ${alert.source}`,
-      summary: `当前状态：${alert.state}；责任：${alert.owner}；更新时间：${alert.updated}`,
-      cause: '责任链已挂起，待班组长拍板。',
-      recommendation: alert.recommendation,
-      chain: alert.chain,
-      actionNote: alert.recommendation[0],
+      summary: `状态 ${alert.state}，责任 ${alert.owner}，更新 ${alert.updated}`,
+      block: alert.block,
+      currentOwner: alert.currentOwner,
+      nextOwner: alert.nextOwner,
+      overtime: alert.overtime,
+      currentAction: alert.currentAction,
+      productionImpact: alert.productionImpact,
+      escalated: alert.escalated,
     }
   }, [alerts, focusTarget, workOrders])
 
@@ -296,10 +340,10 @@ function App() {
     const pendingHandover = handoverTasks.length
 
     return [
-      { label: '待分派', value: String(pendingAssign), note: '先补派电气，再盯现场结论' },
-      { label: '待回执', value: String(pendingReceipt), note: '先催回执，超时再升级' },
-      { label: '待升级', value: String(pendingEscalate), note: '满足规则即升级并留痕' },
-      { label: '交接项', value: String(pendingHandover), note: '未结项带入交接并等签收' },
+      { label: '待分派', value: String(pendingAssign), note: '包装机 3 号还缺电气' },
+      { label: '待回执', value: String(pendingReceipt), note: '卡在责任人未回' },
+      { label: '待升级', value: String(pendingEscalate), note: '超时或再停即升' },
+      { label: '交接项', value: String(pendingHandover), note: '白班待签收' },
     ]
   }, [handoverTasks, workOrders])
 
@@ -323,8 +367,8 @@ function App() {
       if (item.id !== workOrderId) return item
       const nextReceipt: ReceiptStatus = item.receipt === '待回执' ? '已催办' : item.receipt === '已催办' ? '催办升级' : item.receipt
       const nextStatus: WorkOrderStatus = item.status === '待回执' ? '待回执' : item.status
-      const nextAction = nextReceipt === '催办升级' ? '催办已二次触发，可直接升级' : '已催办，等待责任人回执'
-      logText = `${item.id} 已执行催回执，状态更新为 ${nextReceipt}。`
+      const nextAction = nextReceipt === '催办升级' ? '二次催办后可直接升级' : '已催办，等责任人回执'
+      logText = `${item.id} 已催回执，当前 ${nextReceipt}。`
       return { ...item, receipt: nextReceipt, status: nextStatus, nextAction, queuedAction: '待催办' }
     }))
     if (logText) appendLog(logText)
@@ -336,7 +380,7 @@ function App() {
       if (item.id !== workOrderId) return item
       const nextOwner = item.id === 'WO-20260310-118' ? '李强 / 张凯' : item.owner
       const nextStatus: WorkOrderStatus = '处理中'
-      logText = `${item.id} 已补派，当前责任人更新为 ${nextOwner}。`
+      logText = `${item.id} 已补派，当前责任人 ${nextOwner}。`
       return { ...item, owner: nextOwner, status: nextStatus, receipt: '已接单', nextAction: '盯现场结论', queuedAction: '已处理' }
     }))
     appendLog(logText || `${workOrderId} 已分派。`)
@@ -362,7 +406,7 @@ function App() {
       },
       ...prev,
     ])
-    appendLog(`${workOrderId} 已升级，记录写入升级面板。`)
+    appendLog(`${workOrderId} 已升级，记录已写入。`)
   }
 
   const handleAddToHandover = (workOrderId: string) => {
@@ -378,14 +422,16 @@ function App() {
         item: `${target.device} / ${target.title}`,
         owner: target.handoverOwner,
         due: target.deadline,
-        state: '待接收',
-        receipt: '待接收',
+        state: '待签收',
+        receipt: '待签收',
         source: target.id,
       },
       ...prev,
     ])
-    appendLog(`${workOrderId} 已加入交接，交接页同步新增一条待接收任务。`)
+    appendLog(`${workOrderId} 已加入交接，白班待签收。`)
   }
+
+  const urgentItem = devices[0]
 
   return (
     <div className="app-shell">
@@ -412,21 +458,21 @@ function App() {
         </div>
 
         <div className="side-section quick-panel">
-          <span className="side-label">班组长当前动作</span>
+          <span className="side-label">本班盯防</span>
           <div className="mini-card compact-card emphasis">
-            <span>先补派</span>
+            <span>最急</span>
             <strong>包装机 3 号补派张凯</strong>
-            <small>补派后责任人到位</small>
+            <small>电气不到场，现场判断卡住</small>
           </div>
           <div className="mini-card compact-card">
-            <span>先催办</span>
-            <strong>BAC-2 / 空压站 A</strong>
-            <small>待回执先催，超时再升</small>
+            <span>未回</span>
+            <strong>BAC-2 / 王超</strong>
+            <small>已超时，未回直接升级刘凯</small>
           </div>
           <div className="mini-card compact-card">
-            <span>收班前</span>
-            <strong>未闭环项加入交接</strong>
-            <small>未结项直接带交接</small>
+            <span>交接</span>
+            <strong>白班待签收 2 项</strong>
+            <small>温控评估和首小时复核</small>
           </div>
         </div>
       </aside>
@@ -450,19 +496,20 @@ function App() {
               <section className="card hero-card span-12 dense-card">
                 <div className="hero-copy">
                   <div>
-                    <p className="eyebrow">当班总览</p>
-                    <h3>先分派，再催办，满足规则就升级，未闭环直接带入交接</h3>
+                    <p className="eyebrow">当班最急</p>
+                    <h3>包装机 3 号热封段反复短停，当前卡在电气未到场</h3>
+                    <p className="hero-note">先把张凯补进来，22:36 前拿到现场结论；再停 1 次就升级设备主管。</p>
                     <div className="filter-row">
                       <span className="filter-chip">夜班 B 组</span>
                       <span className="filter-chip">班组长 赵明</span>
-                      <span className="filter-chip">P1-P2</span>
-                      <span className="filter-chip">分派 / 催办 / 升级 / 交接</span>
+                      <span className="filter-chip">P1</span>
+                      <span className="filter-chip">影响包装线</span>
                     </div>
                   </div>
                   <div className="hero-actions">
-                    <button type="button" className="primary-btn" onClick={() => setPage('assistant')}>看责任链</button>
-                    <button type="button" className="secondary-btn" onClick={() => setPage('workorders')}>去工单中心操作</button>
-                    <button type="button" className="secondary-btn" onClick={() => setPage('handover')}>去交接页收口</button>
+                    <button type="button" className="primary-btn" onClick={() => setPage('assistant')}>查看卡点</button>
+                    <button type="button" className="secondary-btn" onClick={() => setPage('workorders')}>去工单处理</button>
+                    <button type="button" className="secondary-btn" onClick={() => setPage('handover')}>看交接</button>
                   </div>
                 </div>
                 <div className="stat-grid">
@@ -479,8 +526,8 @@ function App() {
               <section className="card span-6 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">班组长待办</p>
-                    <h3>真实动作队列</h3>
+                    <p className="eyebrow">当班待办</p>
+                    <h3>当前事项</h3>
                   </div>
                   <span className="panel-tag">按当前状态刷新</span>
                 </div>
@@ -508,8 +555,8 @@ function App() {
               <section className="card span-6 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">班组长操作回放</p>
-                    <h3>动作留痕</h3>
+                    <p className="eyebrow">最近更新</p>
+                    <h3>值班记录</h3>
                   </div>
                   <span className="panel-tag">最新 8 条</span>
                 </div>
@@ -524,9 +571,9 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">重点设备</p>
-                    <h3>异常入口</h3>
+                    <h3>设备卡点</h3>
                   </div>
-                  <span className="panel-tag">设备异常入口</span>
+                  <span className="panel-tag">影响班内处理</span>
                 </div>
                 <div className="selection-list">
                   {devices.map((item) => (
@@ -578,10 +625,10 @@ function App() {
               <section className="card span-7 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">异常 / 工单</p>
-                    <h3>待拍板事项</h3>
+                    <p className="eyebrow">设备 / 工单 / 异常</p>
+                    <h3>待处理</h3>
                   </div>
-                  <span className="panel-tag">责任链在岗</span>
+                  <span className="panel-tag">按卡点查看</span>
                 </div>
                 <div className="split-panel assistant-split">
                   <div className="selection-list">
@@ -611,26 +658,20 @@ function App() {
                   <div className="detail-panel sticky-panel">
                     <div className="section-title slim-title">
                       <div>
-                        <p className="eyebrow">处置面板</p>
+                        <p className="eyebrow">当前信息</p>
                         <h3>{focusDetail.title}</h3>
                       </div>
                       <span className="panel-tag">{focusDetail.subtitle}</span>
                     </div>
-                    <div className="field-grid compact-grid">
-                      <div className="field-card"><span>当前摘要</span><strong>{focusDetail.summary}</strong><small>{focusDetail.cause}</small></div>
-                      <div className="field-card"><span>班组长下一步</span><strong>{focusDetail.actionNote}</strong><small>先动作，再等回执</small></div>
-                    </div>
-                    <div className="detail-section">
-                      <div className="section-title slim-title"><h3>推荐动作</h3><span className="panel-tag">可执行</span></div>
-                      <div className="check-list">
-                        {focusDetail.recommendation.map((item) => <div key={item} className="check-row">{item}</div>)}
-                      </div>
-                    </div>
-                    <div className="detail-section">
-                      <div className="section-title slim-title"><h3>责任链</h3><span className="panel-tag">谁在链上</span></div>
-                      <div className="check-list">
-                        {focusDetail.chain.map((item) => <div key={item} className="check-row">{item}</div>)}
-                      </div>
+                    <div className="field-grid compact-grid detail-fields">
+                      <div className="field-card field-card-wide"><span>当前情况</span><strong>{focusDetail.summary}</strong><small>{focusDetail.block}</small></div>
+                      <div className="field-card"><span>当前卡点</span><strong>{focusDetail.block}</strong></div>
+                      <div className="field-card"><span>当前责任人</span><strong>{focusDetail.currentOwner}</strong></div>
+                      <div className="field-card"><span>下一责任人</span><strong>{focusDetail.nextOwner}</strong></div>
+                      <div className="field-card"><span>超时</span><strong>{focusDetail.overtime}</strong></div>
+                      <div className="field-card"><span>当前动作</span><strong>{focusDetail.currentAction}</strong></div>
+                      <div className="field-card"><span>是否影响产线</span><strong>{focusDetail.productionImpact}</strong></div>
+                      <div className="field-card"><span>是否升级</span><strong>{focusDetail.escalated}</strong></div>
                     </div>
                   </div>
                 </div>
@@ -639,10 +680,10 @@ function App() {
               <section className="card span-5 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">班组长动作条</p>
-                    <h3>当班动作</h3>
+                    <p className="eyebrow">当班动作</p>
+                    <h3>直接处理</h3>
                   </div>
-                  <span className="panel-tag">分派 / 催办 / 升级 / 交接</span>
+                  <span className="panel-tag">保留原操作</span>
                 </div>
                 <div className="stack-list compact-list">
                   {workOrders.map((item) => (
@@ -669,12 +710,12 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">工单中心</p>
-                    <h3>待分派 / 待回执 / 待升级</h3>
+                    <h3>班内工单</h3>
                   </div>
                   <div className="filter-row tight">
                     <span className="filter-chip">本班</span>
                     <span className="filter-chip">P1-P2</span>
-                    <span className="filter-chip">当班队列</span>
+                    <span className="filter-chip">当前处理</span>
                   </div>
                 </div>
                 <div className="table-wrap">
@@ -725,8 +766,8 @@ function App() {
                   <div className="field-card"><span>任务</span><strong>{selectedWorkOrderDetail.title}</strong></div>
                   <div className="field-card"><span>责任人</span><strong>{selectedWorkOrderDetail.owner}</strong></div>
                   <div className="field-card"><span>回执状态</span><strong>{selectedWorkOrderDetail.receipt}</strong></div>
-                  <div className="field-card"><span>下一步</span><strong>{selectedWorkOrderDetail.nextAction}</strong></div>
-                  <div className="field-card"><span>升级状态</span><strong>{selectedWorkOrderDetail.escalated ? '已写入记录' : '未升级'}</strong></div>
+                  <div className="field-card"><span>当前动作</span><strong>{selectedWorkOrderDetail.nextAction}</strong></div>
+                  <div className="field-card"><span>是否升级</span><strong>{selectedWorkOrderDetail.escalated ? '已升级' : '未升级'}</strong></div>
                   <div className="field-card"><span>交接状态</span><strong>{selectedWorkOrderDetail.inHandover ? '已加入交接' : '未加入交接'}</strong></div>
                 </div>
               </section>
@@ -735,9 +776,9 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">异常列表</p>
-                    <h3>异常待拍板</h3>
+                    <h3>异常</h3>
                   </div>
-                  <span className="panel-tag">异常入口</span>
+                  <span className="panel-tag">按阻塞查看</span>
                 </div>
                 <div className="alert-list compact-list">
                   {alerts.map((alert) => (
@@ -755,7 +796,7 @@ function App() {
                         <strong>{alert.title}</strong>
                       </div>
                       <p>{alert.source} / {alert.owner}</p>
-                      <small>{alert.recommendation.join(' / ')}</small>
+                      <small>{alert.block} / {alert.currentAction}</small>
                     </button>
                   ))}
                 </div>
@@ -765,9 +806,9 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">升级记录</p>
-                    <h3>升级留痕</h3>
+                    <h3>升级</h3>
                   </div>
-                  <span className="panel-tag">升级面板</span>
+                  <span className="panel-tag">本班已写入</span>
                 </div>
                 <div className="table-wrap">
                   <table>
@@ -803,7 +844,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">交接页</p>
-                    <h3>未结项待签收</h3>
+                    <h3>本班交接</h3>
                   </div>
                   <div className="action-bar compact-actions">
                     <button type="button" className="secondary-btn" onClick={() => setPage('workorders')}>返回工单继续处理</button>
@@ -812,9 +853,9 @@ function App() {
                 </div>
                 <div className="summary-grid">
                   <div className="memory-card"><span>交接单号</span><strong>HO-20260310-B2</strong></div>
-                  <div className="memory-card"><span>交班人</span><strong>夜班班组长 赵明</strong></div>
-                  <div className="memory-card"><span>接班人</span><strong>白班班组长 陈涛</strong></div>
-                  <div className="memory-card"><span>待接收项</span><strong>{handoverTasks.length} 条</strong></div>
+                  <div className="memory-card"><span>必交项</span><strong>{handoverTasks.length} 条</strong></div>
+                  <div className="memory-card"><span>待签收</span><strong>{handoverTasks.filter((task) => task.state === '待签收').length} 条</strong></div>
+                  <div className="memory-card"><span>接班确认</span><strong>白班班组长 陈涛</strong></div>
                 </div>
               </section>
 
@@ -822,7 +863,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">交接列表</p>
-                    <h3>待交接事项</h3>
+                    <h3>必交项</h3>
                   </div>
                   <span className="panel-tag">待签收</span>
                 </div>
@@ -857,15 +898,15 @@ function App() {
               <section className="card span-5 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">交班口径</p>
-                    <h3>交班口径</h3>
+                    <p className="eyebrow">交接状态</p>
+                    <h3>接班确认</h3>
                   </div>
-                  <span className="panel-tag">交班必带</span>
+                  <span className="panel-tag">本班必带</span>
                 </div>
                 <div className="stack-list compact-list">
-                  <div className="mini-card compact-card"><span>先报</span><strong>影响产线项</strong><small>包装机 3 号先交责任链</small></div>
-                  <div className="mini-card compact-card"><span>再报</span><strong>未回执 / 已升级</strong><small>BAC-2 带升级链和处理意见</small></div>
-                  <div className="mini-card compact-card"><span>确认</span><strong>接班人</strong><small>白班签收未结项</small></div>
+                  <div className="mini-card compact-card"><span>待签收</span><strong>温控模块更换评估</strong><small>白班 张凯 06:30 前接手</small></div>
+                  <div className="mini-card compact-card"><span>已升级未闭环</span><strong>BAC-2 夜间能耗复核</strong><small>责任人未回，必要时继续升级</small></div>
+                  <div className="mini-card compact-card"><span>接班确认</span><strong>包装机 3 号首小时复核</strong><small>白班班组长 陈涛确认结果</small></div>
                 </div>
               </section>
             </div>
