@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="蓝色龙虾图标">
+  <defs>
+    <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="55%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="claw" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+
+  <g fill="none" stroke="#0f172a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M108 56 C88 30, 56 26, 34 40" />
+    <path d="M148 56 C168 30, 200 26, 222 40" />
+
+    <path d="M92 136 L54 154" />
+    <path d="M92 152 L50 178" />
+    <path d="M92 168 L58 202" />
+    <path d="M164 136 L202 154" />
+    <path d="M164 152 L206 178" />
+    <path d="M164 168 L198 202" />
+
+    <path d="M98 112 C76 106, 58 98, 40 86" />
+    <path d="M158 112 C180 106, 198 98, 216 86" />
+
+    <path fill="url(#claw)" d="M22 64
+      C10 74, 10 94, 24 104
+      C40 116, 62 108, 72 92
+      C62 88, 54 84, 48 76
+      C42 68, 34 64, 22 64 Z"/>
+    <path fill="url(#claw)" d="M46 72
+      C34 72, 28 82, 32 92
+      C42 90, 50 86, 56 80
+      C54 76, 50 72, 46 72 Z"/>
+
+    <path fill="url(#claw)" d="M234 64
+      C246 74, 246 94, 232 104
+      C216 116, 194 108, 184 92
+      C194 88, 202 84, 208 76
+      C214 68, 222 64, 234 64 Z"/>
+    <path fill="url(#claw)" d="M210 72
+      C222 72, 228 82, 224 92
+      C214 90, 206 86, 200 80
+      C202 76, 206 72, 210 72 Z"/>
+
+    <path fill="url(#shell)" d="M128 54
+      C92 54, 72 80, 74 112
+      L82 178
+      C84 198, 100 214, 128 214
+      C156 214, 172 198, 174 178
+      L182 112
+      C184 80, 164 54, 128 54 Z"/>
+
+    <path fill="#60a5fa" d="M92 178 H164 C160 194, 148 204, 128 204 C108 204, 96 194, 92 178 Z"/>
+    <path fill="#3b82f6" d="M98 194 H158 C152 208, 142 218, 128 218 C114 218, 104 208, 98 194 Z"/>
+
+    <path fill="#bfdbfe" d="M100 64 H156 C152 82, 144 94, 128 94 C112 94, 104 82, 100 64 Z"/>
+
+    <circle cx="112" cy="82" r="5" fill="#0f172a"/>
+    <circle cx="144" cy="82" r="5" fill="#0f172a"/>
+
+    <path d="M128 94 V176" />
+    <path d="M98 110 H158" />
+    <path d="M94 132 H162" />
+    <path d="M90 154 H166" />
+  </g>
+</svg>

@@ -80,7 +80,14 @@ a { color: inherit; text-decoration: none; }
   display: grid;
   place-items: center;
   background: linear-gradient(180deg, rgba(97, 180, 255, 0.18), rgba(85, 239, 255, 0.1));
-  font-size: 21px;
+  overflow: hidden;
+}
+
+.brand-icon-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .brand-block h1, h2, h3, p { margin-top: 0; }

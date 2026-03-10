@@ -438,7 +438,9 @@ function App() {
       <div className="ambient-bg" />
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="brand-icon">🦞</div>
+          <div className="brand-icon">
+            <img src="/industryclaw-icon.svg" alt="IndustryClaw" className="brand-icon-image" />
+          </div>
           <div>
             <h1>IndustryClaw</h1>
             <p>班组长工作台</p>
