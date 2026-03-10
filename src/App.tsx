@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 
 type PageId = 'dashboard' | 'assistant' | 'workorders' | 'handover'
-type QueueState = '待分派' | '待催办' | '待升级' | '待交接' | '已处理'
-type WorkOrderStatus = '处理中' | '待接单' | '待回执' | '待升级' | '已升级' | '已加入交接'
+type QueueState = '待分派' | '待催办' | '待升级' | '待带班交' | '已处理'
+type WorkOrderStatus = '处理中' | '待接单' | '待回执' | '待升级' | '已升级' | '已带班交'
 type ReceiptStatus = '已接单' | '待回执' | '已催办' | '催办升级' | '升级处理中'
 type ItemType = 'device' | 'workorder' | 'alert'
 
@@ -76,10 +76,10 @@ type FocusDetail = {
 }
 
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: '首页 / 当班总览', short: '首页', desc: '当前班最急事项和当班动作' },
-  { id: 'assistant', label: '设备助手', short: '设备助手', desc: '设备、工单、异常卡点' },
-  { id: 'workorders', label: '工单中心', short: '工单中心', desc: '分派、催办、升级、交接' },
-  { id: 'handover', label: '交接页', short: '交接页', desc: '必交项、待签收、接班确认' },
+  { id: 'dashboard', label: '首页 / 值班盯防', short: '首页', desc: '先处理、谁没回、哪里要升' },
+  { id: 'assistant', label: '设备助手', short: '设备助手', desc: '盯卡点、盯责任、盯影响范围' },
+  { id: 'workorders', label: '工单中心', short: '工单中心', desc: '未接、未回、超时、升级、带班交' },
+  { id: 'handover', label: '交接页', short: '交接页', desc: '白班先看、未稳设备、未闭环' },
 ]
 
 const devices: DeviceItem[] = [
@@ -132,7 +132,7 @@ const devices: DeviceItem[] = [
     overtime: '23:00 前必须给窗口',
     currentAction: '催回复停机窗口',
     productionImpact: '否，当前不影响产线',
-    escalated: '否，先带入交接',
+    escalated: '先带班交，窗口还没定',
   },
 ]
 
@@ -164,10 +164,10 @@ const initialWorkOrders: WorkOrderItem[] = [
     receipt: '待回执',
     deadline: '06:30',
     level: 'P1',
-    nextAction: '带入白班交接',
+    nextAction: '白班先接住',
     inHandover: true,
     escalated: false,
-    queuedAction: '待交接',
+    queuedAction: '待带班交',
     escalationTo: '设备主管',
     handoverOwner: '白班 张凯',
   },
@@ -265,8 +265,8 @@ const initialEscalations: EscalationRecord[] = [
 ]
 
 const initialHandoverTasks: HandoverTask[] = [
-  { id: 'HO-TASK-116', item: '温控模块更换评估', owner: '白班 张凯', due: '06:30', state: '待签收', receipt: '未回执', source: 'WO-20260310-116' },
-  { id: 'HO-TASK-CHECK', item: '包装机 3 号首小时复核', owner: '白班班组长 陈涛', due: '08:00', state: '待确认', receipt: '待签收', source: '班组长交接单' },
+  { id: 'HO-TASK-116', item: '温控模块更换评估', owner: '白班 张凯', due: '06:30', state: '未闭环', receipt: '责任人未回', source: 'WO-20260310-116' },
+  { id: 'HO-TASK-CHECK', item: '包装机 3 号首小时复核', owner: '白班班组长 陈涛', due: '08:00', state: '未稳设备', receipt: '上一班已点名', source: '班组长交接单' },
 ]
 
 function App() {
@@ -290,7 +290,7 @@ function App() {
       const device = devices.find((item) => item.id === focusTarget.id) ?? devices[0]
       return {
         title: device.name,
-        subtitle: `${device.area} / ${device.workOrderId}`,
+        subtitle: `${device.area} / 先盯责任和影响`,
         summary: device.summary,
         block: device.block,
         currentOwner: device.currentOwner,
@@ -306,8 +306,8 @@ function App() {
       const workOrder = workOrders.find((item) => item.id === focusTarget.id) ?? workOrders[0]
       return {
         title: `${workOrder.id} / ${workOrder.title}`,
-        subtitle: `${workOrder.level} / ${workOrder.device}`,
-        summary: `状态 ${workOrder.status}，回执 ${workOrder.receipt}，截止 ${workOrder.deadline}`,
+        subtitle: `${workOrder.level} / ${workOrder.device} / 先看谁没回`,
+        summary: `卡在 ${workOrder.status}，${workOrder.receipt}，${workOrder.deadline} 前必须有人接住`,
         block: workOrder.receipt === '待回执' || workOrder.receipt === '已催办' ? '责任人还没给回执。' : '现场在处理，等结果回传。',
         currentOwner: workOrder.owner,
         nextOwner: workOrder.escalationTo ?? workOrder.handoverOwner,
@@ -321,8 +321,8 @@ function App() {
     const alert = alerts.find((item) => item.id === focusTarget.id) ?? alerts[0]
     return {
       title: alert.title,
-      subtitle: `${alert.level} / ${alert.source}`,
-      summary: `状态 ${alert.state}，责任 ${alert.owner}，更新 ${alert.updated}`,
+      subtitle: `${alert.level} / ${alert.source} / 先看要不要升级`,
+      summary: `${alert.state}，${alert.owner} 盯着，${alert.updated} 更新`,
       block: alert.block,
       currentOwner: alert.currentOwner,
       nextOwner: alert.nextOwner,
@@ -334,7 +334,7 @@ function App() {
   }, [alerts, focusTarget, workOrders])
 
   const stats = useMemo(() => {
-    const pendingAssign = workOrders.filter((item) => item.queuedAction === '待分派' && item.status !== '已加入交接').length
+    const pendingAssign = workOrders.filter((item) => item.queuedAction === '待分派' && item.status !== '已带班交').length
     const pendingReceipt = workOrders.filter((item) => item.receipt === '待回执' || item.receipt === '已催办').length
     const pendingEscalate = workOrders.filter((item) => item.status === '待升级').length
     const pendingHandover = handoverTasks.length
@@ -343,7 +343,7 @@ function App() {
       { label: '待分派', value: String(pendingAssign), note: '包装机 3 号还缺电气' },
       { label: '待回执', value: String(pendingReceipt), note: '卡在责任人未回' },
       { label: '待升级', value: String(pendingEscalate), note: '超时或再停即升' },
-      { label: '交接项', value: String(pendingHandover), note: '白班待签收' },
+      { label: '带班交', value: String(pendingHandover), note: '白班先接这几项' },
     ]
   }, [handoverTasks, workOrders])
 
@@ -414,7 +414,7 @@ function App() {
     if (!target || target.inHandover) return
 
     setWorkOrders((prev) => prev.map((item) => item.id === workOrderId
-      ? { ...item, inHandover: true, status: '已加入交接', nextAction: '已进入交接清单', queuedAction: '待交接' }
+      ? { ...item, inHandover: true, status: '已带班交', nextAction: '已写入白班先看', queuedAction: '待带班交' }
       : item))
     setHandoverTasks((prev) => [
       {
@@ -422,13 +422,13 @@ function App() {
         item: `${target.device} / ${target.title}`,
         owner: target.handoverOwner,
         due: target.deadline,
-        state: '待签收',
-        receipt: '待签收',
+        state: '未闭环',
+        receipt: '上一班已点名',
         source: target.id,
       },
       ...prev,
     ])
-    appendLog(`${workOrderId} 已加入交接，白班待签收。`)
+    appendLog(`${workOrderId} 已带班交，白班先看。`)
   }
 
   const urgentItem = devices[0]
@@ -470,8 +470,8 @@ function App() {
             <small>已超时，未回直接升级刘凯</small>
           </div>
           <div className="mini-card compact-card">
-            <span>交接</span>
-            <strong>白班待签收 2 项</strong>
+            <span>带班交</span>
+            <strong>白班先看 2 项</strong>
             <small>温控评估和首小时复核</small>
           </div>
         </div>
@@ -526,10 +526,10 @@ function App() {
               <section className="card span-6 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">当班待办</p>
-                    <h3>当前事项</h3>
+                    <p className="eyebrow">值班先处理</p>
+                    <h3>先处理</h3>
                   </div>
-                  <span className="panel-tag">按当前状态刷新</span>
+                  <span className="panel-tag">先盯超时和未回</span>
                 </div>
                 <div className="stack-list compact-list">
                   {queueCards.map((task) => (
@@ -570,10 +570,10 @@ function App() {
               <section className="card span-6 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">重点设备</p>
-                    <h3>设备卡点</h3>
+                    <p className="eyebrow">卡住哪条线</p>
+                    <h3>先看设备卡点</h3>
                   </div>
-                  <span className="panel-tag">影响班内处理</span>
+                  <span className="panel-tag">先保产线再排其他</span>
                 </div>
                 <div className="selection-list">
                   {devices.map((item) => (
@@ -601,20 +601,20 @@ function App() {
               <section className="card span-6 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">快捷动作</p>
+                    <p className="eyebrow">白班先看什么</p>
                     <h3>{selectedWorkOrderDetail.id}</h3>
                   </div>
-                  <span className="panel-tag">当班处置</span>
+                  <span className="panel-tag">缺人就补，超时就催，该升就升</span>
                 </div>
                 <div className="field-grid compact-grid">
-                  <div className="field-card"><span>任务</span><strong>{selectedWorkOrderDetail.title}</strong><small>{selectedWorkOrderDetail.nextAction}</small></div>
-                  <div className="field-card"><span>回执</span><strong>{selectedWorkOrderDetail.receipt}</strong><small>{selectedWorkOrderDetail.status}</small></div>
+                  <div className="field-card"><span>谁没回</span><strong>{selectedWorkOrderDetail.owner}</strong><small>{selectedWorkOrderDetail.receipt} / {selectedWorkOrderDetail.status}</small></div>
+                  <div className="field-card"><span>哪个要升</span><strong>{selectedWorkOrderDetail.nextAction}</strong><small>{selectedWorkOrderDetail.level} / {selectedWorkOrderDetail.deadline}</small></div>
                 </div>
                 <div className="action-bar compact-actions">
                   <button type="button" className="secondary-btn" onClick={() => handleAssign(selectedWorkOrderDetail.id)}>分派</button>
                   <button type="button" className="secondary-btn" onClick={() => handleNudgeReceipt(selectedWorkOrderDetail.id)}>催回执</button>
                   <button type="button" className="secondary-btn" onClick={() => handleEscalate(selectedWorkOrderDetail.id)}>升级</button>
-                  <button type="button" className="primary-btn" onClick={() => handleAddToHandover(selectedWorkOrderDetail.id)}>加入交接</button>
+                  <button type="button" className="primary-btn" onClick={() => handleAddToHandover(selectedWorkOrderDetail.id)}>带班交</button>
                 </div>
               </section>
             </div>
@@ -628,7 +628,7 @@ function App() {
                     <p className="eyebrow">设备 / 工单 / 异常</p>
                     <h3>待处理</h3>
                   </div>
-                  <span className="panel-tag">按卡点查看</span>
+                  <span className="panel-tag">先看谁卡住、谁没回、哪条线受影响</span>
                 </div>
                 <div className="split-panel assistant-split">
                   <div className="selection-list">
@@ -658,20 +658,20 @@ function App() {
                   <div className="detail-panel sticky-panel">
                     <div className="section-title slim-title">
                       <div>
-                        <p className="eyebrow">当前信息</p>
+                        <p className="eyebrow">盯住这件事</p>
                         <h3>{focusDetail.title}</h3>
                       </div>
                       <span className="panel-tag">{focusDetail.subtitle}</span>
                     </div>
                     <div className="field-grid compact-grid detail-fields">
-                      <div className="field-card field-card-wide"><span>当前情况</span><strong>{focusDetail.summary}</strong><small>{focusDetail.block}</small></div>
-                      <div className="field-card"><span>当前卡点</span><strong>{focusDetail.block}</strong></div>
+                      <div className="field-card field-card-wide"><span>现场判断</span><strong>{focusDetail.summary}</strong><small>{focusDetail.block}</small></div>
+                      <div className="field-card"><span>卡点</span><strong>{focusDetail.block}</strong></div>
                       <div className="field-card"><span>当前责任人</span><strong>{focusDetail.currentOwner}</strong></div>
-                      <div className="field-card"><span>下一责任人</span><strong>{focusDetail.nextOwner}</strong></div>
                       <div className="field-card"><span>超时</span><strong>{focusDetail.overtime}</strong></div>
-                      <div className="field-card"><span>当前动作</span><strong>{focusDetail.currentAction}</strong></div>
-                      <div className="field-card"><span>是否影响产线</span><strong>{focusDetail.productionImpact}</strong></div>
-                      <div className="field-card"><span>是否升级</span><strong>{focusDetail.escalated}</strong></div>
+                      <div className="field-card"><span>下一步</span><strong>{focusDetail.currentAction}</strong></div>
+                      <div className="field-card"><span>影响范围</span><strong>{focusDetail.productionImpact}</strong></div>
+                      <div className="field-card"><span>下一责任人</span><strong>{focusDetail.nextOwner}</strong></div>
+                      <div className="field-card"><span>升级口径</span><strong>{focusDetail.escalated}</strong></div>
                     </div>
                   </div>
                 </div>
@@ -680,10 +680,10 @@ function App() {
               <section className="card span-5 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">当班动作</p>
-                    <h3>直接处理</h3>
+                    <p className="eyebrow">班组长直接催</p>
+                    <h3>该补人就补人</h3>
                   </div>
-                  <span className="panel-tag">保留原操作</span>
+                  <span className="panel-tag">动作不变，口径改成盯风险催责任</span>
                 </div>
                 <div className="stack-list compact-list">
                   {workOrders.map((item) => (
@@ -695,7 +695,7 @@ function App() {
                         <button type="button" className="secondary-btn" onClick={() => handleAssign(item.id)}>分派</button>
                         <button type="button" className="secondary-btn" onClick={() => handleNudgeReceipt(item.id)}>催回执</button>
                         <button type="button" className="secondary-btn" onClick={() => handleEscalate(item.id)}>升级</button>
-                        <button type="button" className="primary-btn" onClick={() => handleAddToHandover(item.id)}>加入交接</button>
+                        <button type="button" className="primary-btn" onClick={() => handleAddToHandover(item.id)}>带班交</button>
                       </div>
                     </article>
                   ))}
@@ -710,12 +710,12 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">工单中心</p>
-                    <h3>班内工单</h3>
+                    <h3>今晚先盯这些单</h3>
                   </div>
                   <div className="filter-row tight">
                     <span className="filter-chip">本班</span>
                     <span className="filter-chip">P1-P2</span>
-                    <span className="filter-chip">当前处理</span>
+                    <span className="filter-chip">未接 / 未回 / 超时</span>
                   </div>
                 </div>
                 <div className="table-wrap">
@@ -726,9 +726,9 @@ function App() {
                         <th>任务</th>
                         <th>责任人</th>
                         <th>回执</th>
-                        <th>状态</th>
-                        <th>截止</th>
-                        <th>交接</th>
+                        <th>卡点</th>
+                        <th>几点前</th>
+                        <th>带班交</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -738,9 +738,9 @@ function App() {
                           <td>{item.title}</td>
                           <td>{item.owner}</td>
                           <td>{item.receipt}</td>
-                          <td>{item.status}</td>
+                          <td>{item.nextAction}</td>
                           <td>{item.deadline}</td>
-                          <td>{item.inHandover ? '已加入' : '未加入'}</td>
+                          <td>{item.inHandover ? '已带班交' : '未带班交'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -750,25 +750,25 @@ function App() {
                   <button type="button" className="secondary-btn" onClick={() => handleAssign(selectedWorkOrderDetail.id)}>分派</button>
                   <button type="button" className="secondary-btn" onClick={() => handleNudgeReceipt(selectedWorkOrderDetail.id)}>催回执</button>
                   <button type="button" className="secondary-btn" onClick={() => handleEscalate(selectedWorkOrderDetail.id)}>升级</button>
-                  <button type="button" className="primary-btn" onClick={() => handleAddToHandover(selectedWorkOrderDetail.id)}>加入交接</button>
+                  <button type="button" className="primary-btn" onClick={() => handleAddToHandover(selectedWorkOrderDetail.id)}>带班交</button>
                 </div>
               </section>
 
               <section className="card span-5 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">工单详情</p>
+                    <p className="eyebrow">这单现在卡哪</p>
                     <h3>{selectedWorkOrderDetail.id}</h3>
                   </div>
-                  <span className="panel-tag">责任人 / 回执 / 交接</span>
+                  <span className="panel-tag">先盯未回，再决定要不要升级</span>
                 </div>
                 <div className="field-grid compact-grid">
-                  <div className="field-card"><span>任务</span><strong>{selectedWorkOrderDetail.title}</strong></div>
-                  <div className="field-card"><span>责任人</span><strong>{selectedWorkOrderDetail.owner}</strong></div>
-                  <div className="field-card"><span>回执状态</span><strong>{selectedWorkOrderDetail.receipt}</strong></div>
-                  <div className="field-card"><span>当前动作</span><strong>{selectedWorkOrderDetail.nextAction}</strong></div>
-                  <div className="field-card"><span>是否升级</span><strong>{selectedWorkOrderDetail.escalated ? '已升级' : '未升级'}</strong></div>
-                  <div className="field-card"><span>交接状态</span><strong>{selectedWorkOrderDetail.inHandover ? '已加入交接' : '未加入交接'}</strong></div>
+                  <div className="field-card"><span>卡住哪</span><strong>{selectedWorkOrderDetail.title}</strong></div>
+                  <div className="field-card"><span>当前责任人</span><strong>{selectedWorkOrderDetail.owner}</strong></div>
+                  <div className="field-card"><span>谁没回</span><strong>{selectedWorkOrderDetail.receipt}</strong></div>
+                  <div className="field-card"><span>下一步</span><strong>{selectedWorkOrderDetail.nextAction}</strong></div>
+                  <div className="field-card"><span>哪个要升</span><strong>{selectedWorkOrderDetail.escalated ? '已升级' : '还可继续催后再升'}</strong></div>
+                  <div className="field-card"><span>要不要带班交</span><strong>{selectedWorkOrderDetail.inHandover ? '已带班交' : '还没带班交'}</strong></div>
                 </div>
               </section>
 
@@ -778,7 +778,7 @@ function App() {
                     <p className="eyebrow">异常列表</p>
                     <h3>异常</h3>
                   </div>
-                  <span className="panel-tag">按阻塞查看</span>
+                  <span className="panel-tag">先看影响产线和超时</span>
                 </div>
                 <div className="alert-list compact-list">
                   {alerts.map((alert) => (
@@ -806,9 +806,9 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">升级记录</p>
-                    <h3>升级</h3>
+                    <h3>已经往上提的事</h3>
                   </div>
-                  <span className="panel-tag">本班已写入</span>
+                  <span className="panel-tag">今晚已抬给上级</span>
                 </div>
                 <div className="table-wrap">
                   <table>
@@ -844,18 +844,18 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">交接页</p>
-                    <h3>本班交接</h3>
+                    <h3>白班先看这些</h3>
                   </div>
                   <div className="action-bar compact-actions">
                     <button type="button" className="secondary-btn" onClick={() => setPage('workorders')}>返回工单继续处理</button>
-                    <button type="button" className="primary-btn">锁定交接版本</button>
+                    <button type="button" className="primary-btn">整理给白班</button>
                   </div>
                 </div>
                 <div className="summary-grid">
                   <div className="memory-card"><span>交接单号</span><strong>HO-20260310-B2</strong></div>
-                  <div className="memory-card"><span>必交项</span><strong>{handoverTasks.length} 条</strong></div>
-                  <div className="memory-card"><span>待签收</span><strong>{handoverTasks.filter((task) => task.state === '待签收').length} 条</strong></div>
-                  <div className="memory-card"><span>接班确认</span><strong>白班班组长 陈涛</strong></div>
+                  <div className="memory-card"><span>白班先看</span><strong>{handoverTasks.length} 条</strong></div>
+                  <div className="memory-card"><span>未闭环</span><strong>{handoverTasks.filter((task) => task.state === '未闭环').length} 条</strong></div>
+                  <div className="memory-card"><span>接班责任人</span><strong>白班班组长 陈涛</strong></div>
                 </div>
               </section>
 
@@ -863,19 +863,19 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">交接列表</p>
-                    <h3>必交项</h3>
+                    <h3>未稳设备和未闭环</h3>
                   </div>
-                  <span className="panel-tag">待签收</span>
+                  <span className="panel-tag">几点前必须接上</span>
                 </div>
                 <div className="table-wrap">
                   <table>
                     <thead>
                       <tr>
                         <th>事项</th>
-                        <th>接班人</th>
-                        <th>截止</th>
-                        <th>状态</th>
-                        <th>回执</th>
+                        <th>接班责任人</th>
+                        <th>几点前处理</th>
+                        <th>未闭环</th>
+                        <th>谁没回</th>
                         <th>来源</th>
                       </tr>
                     </thead>
@@ -898,15 +898,15 @@ function App() {
               <section className="card span-5 dense-card">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">交接状态</p>
-                    <h3>接班确认</h3>
+                    <p className="eyebrow">白班先盯</p>
+                    <h3>先稳设备再补闭环</h3>
                   </div>
-                  <span className="panel-tag">本班必带</span>
+                  <span className="panel-tag">责任人和处理时点都写清楚</span>
                 </div>
                 <div className="stack-list compact-list">
-                  <div className="mini-card compact-card"><span>待签收</span><strong>温控模块更换评估</strong><small>白班 张凯 06:30 前接手</small></div>
-                  <div className="mini-card compact-card"><span>已升级未闭环</span><strong>BAC-2 夜间能耗复核</strong><small>责任人未回，必要时继续升级</small></div>
-                  <div className="mini-card compact-card"><span>接班确认</span><strong>包装机 3 号首小时复核</strong><small>白班班组长 陈涛确认结果</small></div>
+                  <div className="mini-card compact-card"><span>白班先看</span><strong>温控模块更换评估</strong><small>白班 张凯 06:30 前先接住</small></div>
+                  <div className="mini-card compact-card"><span>未闭环</span><strong>BAC-2 夜间能耗复核</strong><small>王超没回，必要时直接再往上提</small></div>
+                  <div className="mini-card compact-card"><span>未稳设备</span><strong>包装机 3 号首小时复核</strong><small>白班班组长 陈涛 08:00 前盯住首轮结果</small></div>
                 </div>
               </section>
             </div>
