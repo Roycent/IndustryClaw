@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 
 type PageId = 'dashboard' | 'assistant' | 'workorders' | 'handover' | 'orchestration'
@@ -84,6 +85,48 @@ type FocusDetail = {
   activeAgentIds: string[]
   activeSkillIds: string[]
 }
+
+type TrendPoint = { label: string; value: number }
+type SegmentDatum = { label: string; value: number; tone: 'cyan' | 'teal' | 'amber' | 'red' | 'blue' }
+
+type ChartTone = SegmentDatum['tone']
+
+type QueueCard = {
+  id: string
+  title: string
+  priority: string
+  owner: string
+  deadline: string
+  note: string
+  state: QueueState
+  agent: string
+}
+
+const toneMap: Record<ChartTone, string> = {
+  cyan: '#55efff',
+  teal: '#4bffc9',
+  amber: '#ffca68',
+  red: '#ff6e80',
+  blue: '#61b4ff',
+}
+
+const shiftTrend: TrendPoint[] = [
+  { label: '18:00', value: 1 },
+  { label: '20:00', value: 2 },
+  { label: '22:00', value: 5 },
+  { label: '00:00', value: 4 },
+  { label: '02:00', value: 3 },
+  { label: '04:00', value: 2 },
+]
+
+const overtimeTrend: TrendPoint[] = [
+  { label: '20:00', value: 1 },
+  { label: '22:00', value: 2 },
+  { label: '00:00', value: 3 },
+  { label: '02:00', value: 2 },
+  { label: '04:00', value: 1 },
+  { label: '06:00', value: 2 },
+]
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: '首页 / 值班盯防', short: '首页', desc: '先处理、谁没回、哪里要升' },
@@ -367,21 +410,175 @@ const initialHandoverTasks: HandoverTask[] = [
   { id: 'HO-TASK-CHECK', item: '包装机 3 号首小时复核', owner: '白班班组长 陈涛', due: '08:00', state: '未稳设备', receipt: '上一班已点名', source: '班组长交接单', agentId: 'agent-shift', skillIds: ['skill-shift-priority', 'skill-supervisor-brief'] },
 ]
 
+function getWorkOrderById(workOrders: WorkOrderItem[], id: string) {
+  return workOrders.find((item) => item.id === id) ?? workOrders[0]
+}
+
+function LineTrendChart({ data, tone = 'cyan', unit = '次', compact = false }: { data: TrendPoint[]; tone?: ChartTone; unit?: string; compact?: boolean }) {
+  const width = 520
+  const height = compact ? 172 : 196
+  const paddingX = 18
+  const paddingTop = 18
+  const paddingBottom = 28
+  const chartHeight = height - paddingTop - paddingBottom
+  const chartWidth = width - paddingX * 2
+  const maxValue = Math.max(...data.map((item) => item.value), 1)
+  const stepX = data.length > 1 ? chartWidth / (data.length - 1) : chartWidth
+
+  const points = data.map((item, index) => {
+    const x = paddingX + stepX * index
+    const y = paddingTop + chartHeight - (item.value / maxValue) * chartHeight
+    return { ...item, x, y }
+  })
+
+  const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+  const areaPath = `${linePath} L ${points[points.length - 1]?.x ?? paddingX} ${height - paddingBottom} L ${points[0]?.x ?? paddingX} ${height - paddingBottom} Z`
+
+  return (
+    <div className="chart-block">
+      <svg viewBox={`0 0 ${width} ${height}`} className="chart-svg" role="img" aria-label="趋势图">
+        {[0, 1, 2, 3].map((line) => {
+          const y = paddingTop + (chartHeight / 3) * line
+          return <line key={line} x1={paddingX} y1={y} x2={width - paddingX} y2={y} className="chart-grid-line" />
+        })}
+        <path d={areaPath} fill={toneMap[tone]} fillOpacity="0.12" />
+        <path d={linePath} fill="none" stroke={toneMap[tone]} strokeWidth="3" strokeLinecap="round" />
+        {points.map((point) => (
+          <g key={point.label}>
+            <circle cx={point.x} cy={point.y} r="4.5" fill={toneMap[tone]} />
+            <text x={point.x} y={height - 10} textAnchor="middle" className="chart-axis-label">{point.label}</text>
+            <text x={point.x} y={point.y - 10} textAnchor="middle" className="chart-value-label">{point.value}</text>
+          </g>
+        ))}
+      </svg>
+      <div className="chart-footer-note">峰值 {maxValue}{unit}，当前班次重点看 22:00-02:00 区间。</div>
+    </div>
+  )
+}
+
+function SegmentedBarChart({ data }: { data: SegmentDatum[] }) {
+  const total = data.reduce((sum, item) => sum + item.value, 0) || 1
+
+  return (
+    <div className="chart-block">
+      <div className="segmented-bar">
+        {data.map((item) => (
+          <div
+            key={item.label}
+            className={`segment-fill tone-${item.tone}`}
+            style={{ width: `${(item.value / total) * 100}%` }}
+            title={`${item.label}: ${item.value}`}
+          />
+        ))}
+      </div>
+      <div className="chart-legend">
+        {data.map((item) => (
+          <div key={item.label} className="legend-row">
+            <span className={`legend-dot tone-${item.tone}`} />
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RingChart({ data, centerLabel, centerValue }: { data: SegmentDatum[]; centerLabel: string; centerValue: string }) {
+  const total = data.reduce((sum, item) => sum + item.value, 0) || 1
+  let offset = 0
+
+  return (
+    <div className="ring-chart-layout chart-block">
+      <div className="ring-chart-wrap">
+        <svg viewBox="0 0 120 120" className="ring-chart" role="img" aria-label="环形图">
+          <circle cx="60" cy="60" r="38" className="ring-base" />
+          {data.map((item) => {
+            const length = (item.value / total) * 238.76
+            const dashOffset = -offset
+            offset += length
+            return (
+              <circle
+                key={item.label}
+                cx="60"
+                cy="60"
+                r="38"
+                className="ring-segment"
+                stroke={toneMap[item.tone]}
+                strokeDasharray={`${length} 238.76`}
+                strokeDashoffset={dashOffset}
+              />
+            )
+          })}
+        </svg>
+        <div className="ring-center">
+          <span>{centerLabel}</span>
+          <strong>{centerValue}</strong>
+        </div>
+      </div>
+      <div className="chart-legend">
+        {data.map((item) => (
+          <div key={item.label} className="legend-row">
+            <span className={`legend-dot tone-${item.tone}`} />
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BarChart({ data }: { data: SegmentDatum[] }) {
+  const maxValue = Math.max(...data.map((item) => item.value), 1)
+
+  return (
+    <div className="chart-block">
+      <div className="bar-chart">
+        {data.map((item) => (
+          <div key={item.label} className="bar-column">
+            <div className="bar-track">
+              <div className={`bar-fill tone-${item.tone}`} style={{ height: `${(item.value / maxValue) * 100}%` }} />
+            </div>
+            <strong>{item.value}</strong>
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ChartPanel({ eyebrow, title, tag, children }: { eyebrow: string; title: string; tag: string; children: ReactNode }) {
+  return (
+    <section className="card dense-card chart-card">
+      <div className="section-title">
+        <div>
+          <p className="eyebrow">{eyebrow}</p>
+          <h3>{title}</h3>
+        </div>
+        <span className="panel-tag">{tag}</span>
+      </div>
+      {children}
+    </section>
+  )
+}
+
 function App() {
   const [page, setPage] = useState<PageId>('dashboard')
   const [selectedDevice, setSelectedDevice] = useState(devices[0].id)
   const [selectedWorkOrder, setSelectedWorkOrder] = useState(initialWorkOrders[0].id)
   const [focusTarget, setFocusTarget] = useState<FocusTarget>({ type: 'device', id: devices[0].id })
-  const [workOrders, setWorkOrders] = useState(initialWorkOrders)
-  const [alerts] = useState(initialAlerts)
-  const [escalations, setEscalations] = useState(initialEscalations)
-  const [handoverTasks, setHandoverTasks] = useState(initialHandoverTasks)
+  const [workOrders, setWorkOrders] = useState<WorkOrderItem[]>(initialWorkOrders)
+  const [alerts] = useState<AlertItem[]>(initialAlerts)
+  const [escalations, setEscalations] = useState<EscalationRecord[]>(initialEscalations)
+  const [handoverTasks, setHandoverTasks] = useState<HandoverTask[]>(initialHandoverTasks)
   const [activityLog, setActivityLog] = useState<string[]>([
     '22:24 班组长助手拉起设备异常分析、停机归因、升级判断 3 个 agents，包装机 3 号进入优先处理。',
   ])
 
   const activeNav = useMemo(() => navItems.find((item) => item.id === page) ?? navItems[0], [page])
-  const selectedWorkOrderDetail = workOrders.find((item) => item.id === selectedWorkOrder) ?? workOrders[0]
+  const selectedWorkOrderDetail = useMemo(() => getWorkOrderById(workOrders, selectedWorkOrder), [selectedWorkOrder, workOrders])
 
   const focusDetail = useMemo<FocusDetail>(() => {
     if (focusTarget.type === 'device') {
@@ -403,7 +600,7 @@ function App() {
     }
 
     if (focusTarget.type === 'workorder') {
-      const workOrder = workOrders.find((item) => item.id === focusTarget.id) ?? workOrders[0]
+      const workOrder = getWorkOrderById(workOrders, focusTarget.id)
       return {
         title: `${workOrder.id} / ${workOrder.title}`,
         subtitle: `${workOrder.level} / ${workOrder.device} / 先看谁没回`,
@@ -451,7 +648,7 @@ function App() {
     ]
   }, [handoverTasks, workOrders])
 
-  const queueCards = useMemo(() => (
+  const queueCards = useMemo<QueueCard[]>(() => (
     workOrders.map((item) => ({
       id: item.id,
       title: item.title,
@@ -478,6 +675,95 @@ function App() {
       + handoverTasks.filter((item) => item.agentId === agent.id).length,
   })), [alerts, handoverTasks, workOrders])
 
+  const receiptDistribution = useMemo<SegmentDatum[]>(() => {
+    const counts: Record<ReceiptStatus, number> = { 已接单: 0, 待回执: 0, 已催办: 0, 催办升级: 0, 升级处理中: 0 }
+    workOrders.forEach((item) => { counts[item.receipt] += 1 })
+
+    const distribution: SegmentDatum[] = [
+      { label: '已接单', value: counts['已接单'], tone: 'teal' },
+      { label: '待回执', value: counts['待回执'], tone: 'amber' },
+      { label: '已催办', value: counts['已催办'], tone: 'cyan' },
+      { label: '催办升级', value: counts['催办升级'], tone: 'red' },
+      { label: '升级处理中', value: counts['升级处理中'], tone: 'blue' },
+    ]
+
+    return distribution.filter((item) => item.value > 0)
+  }, [workOrders])
+
+  const todoStructure = useMemo<SegmentDatum[]>(() => {
+    const pendingAssign = workOrders.filter((item) => item.queuedAction === '待分派').length
+    const pendingReceipt = workOrders.filter((item) => item.queuedAction === '待催办').length
+    const pendingEscalate = workOrders.filter((item) => item.queuedAction === '待升级').length
+    const pendingHandover = workOrders.filter((item) => item.queuedAction === '待带班交').length
+
+    return [
+      { label: '补责任链', value: pendingAssign, tone: 'cyan' },
+      { label: '追回执', value: pendingReceipt, tone: 'amber' },
+      { label: '提升级', value: pendingEscalate, tone: 'red' },
+      { label: '交白班', value: pendingHandover, tone: 'blue' },
+    ]
+  }, [workOrders])
+
+  const workOrderStatusDistribution = useMemo<SegmentDatum[]>(() => {
+    const counts: Record<WorkOrderStatus, number> = { 处理中: 0, 待接单: 0, 待回执: 0, 待升级: 0, 已升级: 0, 已带班交: 0 }
+    workOrders.forEach((item) => { counts[item.status] += 1 })
+
+    const distribution: SegmentDatum[] = [
+      { label: '处理中', value: counts['处理中'], tone: 'teal' },
+      { label: '待接单', value: counts['待接单'], tone: 'cyan' },
+      { label: '待回执', value: counts['待回执'], tone: 'amber' },
+      { label: '待升级', value: counts['待升级'], tone: 'red' },
+      { label: '已升级', value: counts['已升级'], tone: 'blue' },
+      { label: '已带班交', value: counts['已带班交'], tone: 'cyan' },
+    ]
+
+    return distribution.filter((item) => item.value > 0)
+  }, [workOrders])
+
+  const escalationSummary = useMemo<SegmentDatum[]>(() => {
+    const manual = escalations.filter((item) => item.rule.includes('手动') || item.rule.includes('停机')).length
+    const overdue = escalations.filter((item) => item.rule.includes('催办')).length
+    const pending = workOrders.filter((item) => item.status === '待升级').length
+
+    return [
+      { label: '已提升级', value: escalations.length, tone: 'red' },
+      { label: '待判定升级', value: pending, tone: 'amber' },
+      { label: '规则触发', value: manual, tone: 'blue' },
+      { label: '催办转升级', value: overdue, tone: 'cyan' },
+    ]
+  }, [escalations, workOrders])
+
+  const handoverStateDistribution = useMemo<SegmentDatum[]>(() => {
+    const counts = handoverTasks.reduce<Record<string, number>>((acc, item) => {
+      acc[item.state] = (acc[item.state] ?? 0) + 1
+      return acc
+    }, {})
+
+    const distribution: SegmentDatum[] = [
+      { label: '未闭环', value: counts['未闭环'] ?? 0, tone: 'amber' },
+      { label: '未稳设备', value: counts['未稳设备'] ?? 0, tone: 'red' },
+      { label: '已点名承接', value: handoverTasks.filter((item) => item.receipt.includes('已点名')).length, tone: 'teal' },
+    ]
+
+    return distribution.filter((item) => item.value > 0)
+  }, [handoverTasks])
+
+  const handoverOwnerDistribution = useMemo<SegmentDatum[]>(() => {
+    const ownerGroups = handoverTasks.reduce<Record<string, number>>((acc, task) => {
+      const ownerLabel = task.owner.includes('班组长') ? '班组长接' : task.owner.includes('张凯') ? '设备接' : '计划/公辅接'
+      acc[ownerLabel] = (acc[ownerLabel] ?? 0) + 1
+      return acc
+    }, {})
+
+    const distribution: SegmentDatum[] = [
+      { label: '班组长接', value: ownerGroups['班组长接'] ?? 0, tone: 'cyan' },
+      { label: '设备接', value: ownerGroups['设备接'] ?? 0, tone: 'teal' },
+      { label: '计划/公辅接', value: ownerGroups['计划/公辅接'] ?? 0, tone: 'amber' },
+    ]
+
+    return distribution.filter((item) => item.value > 0)
+  }, [handoverTasks])
+
   const appendLog = (text: string) => setActivityLog((prev) => [text, ...prev].slice(0, 8))
 
   const handleNudgeReceipt = (workOrderId: string) => {
@@ -485,10 +771,9 @@ function App() {
     setWorkOrders((prev) => prev.map((item) => {
       if (item.id !== workOrderId) return item
       const nextReceipt: ReceiptStatus = item.receipt === '待回执' ? '已催办' : item.receipt === '已催办' ? '催办升级' : item.receipt
-      const nextStatus: WorkOrderStatus = item.status === '待回执' ? '待回执' : item.status
       const nextAction = nextReceipt === '催办升级' ? '二次催办后可直接升级' : '已催办，等责任人回执'
       logText = `${item.id} 已由工单协调 agent 发起催回执，当前 ${nextReceipt}。`
-      return { ...item, receipt: nextReceipt, status: nextStatus, nextAction, queuedAction: '待催办' }
+      return { ...item, receipt: nextReceipt, nextAction, queuedAction: '待催办' }
     }))
     if (logText) appendLog(logText)
   }
@@ -498,9 +783,8 @@ function App() {
     setWorkOrders((prev) => prev.map((item) => {
       if (item.id !== workOrderId) return item
       const nextOwner = item.id === 'WO-20260310-118' ? '李强 / 张凯' : item.owner
-      const nextStatus: WorkOrderStatus = '处理中'
       logText = `${item.id} 已补派，班组长助手把责任链补齐到 ${nextOwner}。`
-      return { ...item, owner: nextOwner, status: nextStatus, receipt: '已接单', nextAction: '盯现场结论', queuedAction: '已处理' }
+      return { ...item, owner: nextOwner, status: '处理中', receipt: '已接单', nextAction: '盯现场结论', queuedAction: '已处理' }
     }))
     appendLog(logText || `${workOrderId} 已分派。`)
   }
@@ -674,6 +958,22 @@ function App() {
                   ))}
                 </div>
               </section>
+
+              <ChartPanel eyebrow="首页图表" title="班次异常趋势" tag="看波峰出现在几点">
+                <LineTrendChart data={shiftTrend} tone="cyan" />
+              </ChartPanel>
+
+              <ChartPanel eyebrow="首页图表" title="回执状态分布" tag="先抓待回和升级中">
+                <RingChart
+                  data={receiptDistribution}
+                  centerLabel="待跟进"
+                  centerValue={String(receiptDistribution.filter((item) => item.label !== '已接单').reduce((sum, item) => sum + item.value, 0))}
+                />
+              </ChartPanel>
+
+              <ChartPanel eyebrow="首页图表" title="待办结构" tag="先补责任链再推闭环">
+                <SegmentedBarChart data={todoStructure} />
+              </ChartPanel>
 
               <section className="card span-7 dense-card">
                 <div className="section-title">
@@ -894,6 +1194,18 @@ function App() {
 
           {page === 'workorders' && (
             <div className="page-grid">
+              <ChartPanel eyebrow="工单中心图表" title="工单状态分布" tag="优先盯待升级和待回执">
+                <BarChart data={workOrderStatusDistribution} />
+              </ChartPanel>
+
+              <ChartPanel eyebrow="工单中心图表" title="超时趋势" tag="00:00 后超时抬头最明显">
+                <LineTrendChart data={overtimeTrend} tone="amber" compact />
+              </ChartPanel>
+
+              <ChartPanel eyebrow="工单中心图表" title="升级数量与来源" tag="区分已升级、待升级、触发口径">
+                <SegmentedBarChart data={escalationSummary} />
+              </ChartPanel>
+
               <section className="card span-7 dense-card">
                 <div className="section-title">
                   <div>
@@ -1059,6 +1371,14 @@ function App() {
                   <div className="memory-card"><span>接班责任人</span><strong>白班班组长 陈涛</strong></div>
                 </div>
               </section>
+
+              <ChartPanel eyebrow="交接页图表" title="未闭环事项分布" tag="先把未稳设备和未闭环拆开看">
+                <RingChart data={handoverStateDistribution} centerLabel="交接事项" centerValue={String(handoverTasks.length)} />
+              </ChartPanel>
+
+              <ChartPanel eyebrow="交接页图表" title="责任归属分布" tag="确认白班谁先接住">
+                <BarChart data={handoverOwnerDistribution} />
+              </ChartPanel>
 
               <section className="card span-7 dense-card">
                 <div className="section-title">
