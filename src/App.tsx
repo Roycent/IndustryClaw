@@ -122,6 +122,7 @@ type DeviceTelemetry = {
 type SegmentDatum = { label: string; value: number; tone: 'cyan' | 'teal' | 'amber' | 'red' | 'blue' }
 type ChartTone = SegmentDatum['tone']
 type QueueCard = { id: string; title: string; priority: string; owner: string; deadline: string; note: string; state: QueueState; agent: string }
+type AssistantMessage = { role: 'assistant' | 'user'; text: string }
 
 type IndustrialIconProps = { kind: VisualKind; tone?: ChartTone; size?: number; className?: string }
 
@@ -842,6 +843,13 @@ function App() {
   const [workorderFilter, setWorkorderFilter] = useState<WorkorderFilter>('all')
   const [handoverFilter, setHandoverFilter] = useState<HandoverFilter>('all')
   const [handoverFilterValue, setHandoverFilterValue] = useState<string | null>(null)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [assistantInput, setAssistantInput] = useState('')
+  const [dashboardMode, setDashboardMode] = useState<'full' | 'deviceOnly'>('full')
+  const [showReceiptChart, setShowReceiptChart] = useState(true)
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([
+    { role: 'assistant', text: '值班助手已接入。你可以直接说：把 BAC 看板加到首页、隐藏回执图、只看设备数据、切到包装机 3 号。' },
+  ])
   const [activityLog, setActivityLog] = useState<string[]>([
     '22:24 班组长助手拉起设备异常分析、停机归因、升级判断 3 个 agents，包装机 3 号进入优先处理。',
   ])
@@ -1071,6 +1079,60 @@ function App() {
 
   const appendLog = (text: string) => setActivityLog((prev) => [text, ...prev].slice(0, 8))
 
+  const handleAssistantCommand = (raw: string) => {
+    const input = raw.trim()
+    if (!input) return
+    setAssistantMessages((prev) => [...prev, { role: 'user', text: input }])
+    setAssistantInput('')
+
+    if (input.includes('BAC') && (input.includes('加') || input.includes('增加') || input.includes('放到首页'))) {
+      setSelectedDevice('BAC-2-CHL')
+      setDashboardMode('full')
+      setPage('dashboard')
+      setAssistantMessages((prev) => [...prev, { role: 'assistant', text: '已把 BAC 设为首页主看板焦点，设备数据区会切到 BAC-2。' }])
+      appendLog('值班助手通过对话把 BAC 看板切到首页主焦点。')
+      return
+    }
+
+    if ((input.includes('隐藏') || input.includes('删掉') || input.includes('去掉')) && input.includes('回执')) {
+      setShowReceiptChart(false)
+      setDashboardMode('full')
+      setPage('dashboard')
+      setAssistantMessages((prev) => [...prev, { role: 'assistant', text: '已从首页隐藏回执状态分布图。需要的话我也可以再恢复。' }])
+      appendLog('值班助手通过对话隐藏了首页回执图。')
+      return
+    }
+
+    if (input.includes('只看设备')) {
+      setDashboardMode('deviceOnly')
+      setSelectedDevice('PKG-03-HS')
+      setPage('dashboard')
+      setAssistantMessages((prev) => [...prev, { role: 'assistant', text: '已切成设备数据首页，只保留主设备遥测和设备卡。' }])
+      appendLog('值班助手通过对话把首页切成设备数据模式。')
+      return
+    }
+
+    if ((input.includes('切到') || input.includes('看')) && (input.includes('包装机 3') || input.includes('热封段'))) {
+      setSelectedDevice('PKG-03-HS')
+      setFocusTarget({ type: 'device', id: 'PKG-03-HS' })
+      setPage('assistant')
+      setAssistantMessages((prev) => [...prev, { role: 'assistant', text: '已切到包装机 3 号热封段，并同步定位到设备助手页。' }])
+      appendLog('值班助手通过对话切到包装机 3 号热封段。')
+      return
+    }
+
+    if (input.includes('恢复') || input.includes('全部看板')) {
+      setDashboardMode('full')
+      setShowReceiptChart(true)
+      setPage('dashboard')
+      setAssistantMessages((prev) => [...prev, { role: 'assistant', text: '首页已恢复为完整看板，回执图也重新显示。' }])
+      appendLog('值班助手通过对话恢复了完整首页看板。')
+      return
+    }
+
+    setAssistantMessages((prev) => [...prev, { role: 'assistant', text: '这句我先记下了。你可以直接说：把 BAC 看板加到首页、隐藏回执图、只看设备数据、切到包装机 3 号。' }])
+  }
+
   const activateDeviceFocus = (deviceId: string) => {
     setSelectedDevice(deviceId)
     setFocusTarget({ type: 'device', id: deviceId })
@@ -1225,6 +1287,7 @@ function App() {
             <div className="status-pill ok">本班在线</div>
             <div className="status-pill info">重点事项处理中</div>
             <div className="status-pill">夜班 B 组 / 赵明</div>
+            <button type="button" className="assistant-entry" onClick={() => setAssistantOpen((prev) => !prev)}>值班助手</button>
           </div>
         </header>
 
@@ -1275,6 +1338,7 @@ function App() {
                 <LineTrendChart data={shiftTrend} tone="cyan" threshold={4} />
               </ChartPanel>
 
+              {showReceiptChart && dashboardMode === 'full' ? (
               <ChartPanel eyebrow="首页图表" title="回执状态分布" tag="先抓待回和升级中">
                 <RingChart
                   data={receiptDistribution}
@@ -1291,7 +1355,9 @@ function App() {
                   }}
                 />
               </ChartPanel>
+              ) : null}
 
+              {dashboardMode === 'full' ? (
               <ChartPanel eyebrow="首页图表" title="待办结构" tag="先补责任链再推闭环">
                 <SegmentedBarChart
                   data={todoStructure}
@@ -1306,6 +1372,7 @@ function App() {
                   }}
                 />
               </ChartPanel>
+              ) : null}
 
               <section className="card span-12 dense-card">
                 <div className="section-title">
@@ -1328,6 +1395,7 @@ function App() {
                 </div>
               </section>
 
+              {dashboardMode === 'full' ? (
               <section className="card span-7 dense-card">
                 <div className="section-title">
                   <div>
@@ -1367,7 +1435,9 @@ function App() {
                   })}
                 </div>
               </section>
+              ) : null}
 
+              {dashboardMode === 'full' ? (
               <section className="card span-5 dense-card">
                 <div className="section-title">
                   <div>
@@ -1387,7 +1457,9 @@ function App() {
                   ))}
                 </div>
               </section>
+              ) : null}
 
+              {dashboardMode === 'full' ? (
               <section className="card span-6 dense-card">
                 <div className="section-title">
                   <div>
@@ -1402,6 +1474,7 @@ function App() {
                   ))}
                 </div>
               </section>
+              ) : null}
 
               <section className="card span-6 dense-card">
                 <div className="section-title">
@@ -1431,6 +1504,7 @@ function App() {
                 </div>
               </section>
 
+              {dashboardMode === 'full' ? (
               <section className="card span-6 dense-card">
                 <div className="section-title">
                   <div>
@@ -1460,6 +1534,7 @@ function App() {
                   <button type="button" className="primary-btn" onClick={() => handleAddToHandover(selectedWorkOrderDetail.id)}>带班交</button>
                 </div>
               </section>
+              ) : null}
             </div>
           )}
 
@@ -1950,6 +2025,38 @@ function App() {
           )}
         </main>
       </section>
+
+      <aside className={`assistant-drawer ${assistantOpen ? 'open' : ''}`}>
+        <div className="assistant-drawer__header">
+          <div>
+            <p className="eyebrow">值班助手</p>
+            <h3>通过对话改看板</h3>
+          </div>
+          <button type="button" className="secondary-btn" onClick={() => setAssistantOpen(false)}>关闭</button>
+        </div>
+        <div className="assistant-drawer__context">
+          <span className="filter-chip active">当前页面：{activeNav.short}</span>
+          <span className="filter-chip">当前设备：{devices.find((item) => item.id === selectedDevice)?.name}</span>
+          <span className="filter-chip">首页模式：{dashboardMode === 'deviceOnly' ? '只看设备数据' : '完整看板'}</span>
+        </div>
+        <div className="assistant-drawer__suggestions">
+          {['把 BAC 看板加到首页', '隐藏回执图', '只看设备数据', '切到包装机 3 号', '恢复全部看板'].map((prompt) => (
+            <button key={prompt} type="button" className="selection-card" onClick={() => handleAssistantCommand(prompt)}>{prompt}</button>
+          ))}
+        </div>
+        <div className="assistant-drawer__messages">
+          {assistantMessages.map((message, index) => (
+            <div key={`${message.role}-${index}`} className={`assistant-bubble ${message.role}`}>
+              <span>{message.role === 'assistant' ? '值班助手' : '你'}</span>
+              {message.text}
+            </div>
+          ))}
+        </div>
+        <div className="assistant-drawer__input">
+          <input value={assistantInput} onChange={(e) => setAssistantInput(e.target.value)} placeholder="例如：把 BAC 看板加到首页 / 隐藏回执图" />
+          <button type="button" className="primary-btn" onClick={() => handleAssistantCommand(assistantInput)}>发送</button>
+        </div>
+      </aside>
     </div>
   )
 }

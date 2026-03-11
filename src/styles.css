@@ -694,3 +694,78 @@ tbody tr:hover { background: rgba(255,255,255,0.03); }
   .telemetry-snapshot-grid,
   .compact-telemetry-grid { grid-template-columns: 1fr; }
 }
+
+.assistant-entry {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(97, 180, 255, 0.24);
+  background: linear-gradient(90deg, rgba(97, 180, 255, 0.14), rgba(85, 239, 255, 0.08));
+  color: var(--text);
+}
+.assistant-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 92vw);
+  height: 100vh;
+  z-index: 30;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(6, 16, 27, 0.98);
+  border-left: 1px solid var(--line);
+  box-shadow: -20px 0 60px rgba(0, 0, 0, 0.3);
+  transform: translateX(100%);
+  transition: transform 220ms ease;
+}
+.assistant-drawer.open { transform: translateX(0); }
+.assistant-drawer__header,
+.assistant-drawer__input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.assistant-drawer__context,
+.assistant-drawer__suggestions,
+.assistant-drawer__messages {
+  display: grid;
+  gap: 8px;
+}
+.assistant-drawer__messages {
+  overflow: auto;
+  align-content: start;
+  padding-right: 4px;
+}
+.assistant-bubble {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.05);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.assistant-bubble span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--cyan);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.assistant-bubble.assistant { background: rgba(97, 180, 255, 0.08); }
+.assistant-bubble.user { background: rgba(255, 255, 255, 0.04); }
+.assistant-drawer__input input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+  outline: none;
+}
+@media (max-width: 760px) {
+  .assistant-drawer { width: 100vw; }
+  .assistant-drawer__header,
+  .assistant-drawer__input { flex-direction: column; align-items: stretch; }
+}
