@@ -95,6 +95,30 @@ type FocusDetail = {
 }
 
 type TrendPoint = { label: string; value: number }
+type TelemetryMetric = {
+  label: string
+  value: string
+  delta: string
+  tone: ChartTone
+  icon: VisualKind
+  note: string
+}
+type TelemetrySeries = {
+  key: string
+  title: string
+  unit: string
+  tone: ChartTone
+  threshold?: number
+  current: number
+  points: TrendPoint[]
+}
+type DeviceTelemetry = {
+  status: string
+  statusTone: ChartTone
+  metrics: TelemetryMetric[]
+  series: TelemetrySeries[]
+  snapshot: { label: string; value: string }[]
+}
 type SegmentDatum = { label: string; value: number; tone: 'cyan' | 'teal' | 'amber' | 'red' | 'blue' }
 type ChartTone = SegmentDatum['tone']
 type QueueCard = { id: string; title: string; priority: string; owner: string; deadline: string; note: string; state: QueueState; agent: string }
@@ -130,6 +154,86 @@ const shiftTrend: TrendPoint[] = [
   { label: '02:00', value: 3 },
   { label: '04:00', value: 2 },
 ]
+
+const deviceTelemetry: Record<string, DeviceTelemetry> = {
+  'PKG-03-HS': {
+    status: '热封温度高位波动，处于受控警戒区',
+    statusTone: 'amber',
+    metrics: [
+      { label: '热封温度', value: '183.4°C', delta: '+4.2°C', tone: 'amber', icon: 'packaging', note: '阈值 185°C，靠近上限' },
+      { label: '振动 RMS', value: '2.46 mm/s', delta: '+0.31', tone: 'red', icon: 'alert', note: '警戒线 2.80 mm/s' },
+      { label: '主驱电流', value: '31.8 A', delta: '+1.7 A', tone: 'cyan', icon: 'energy', note: '负载率 78%' },
+      { label: '单班能耗', value: '428 kWh', delta: '+5.6%', tone: 'cyan', icon: 'energy', note: '较昨夜同班偏高' },
+      { label: 'OEE', value: '86.7%', delta: '-1.9%', tone: 'amber', icon: 'quality', note: '受短停波动影响' },
+      { label: '封口良率', value: '99.12%', delta: '-0.21%', tone: 'teal', icon: 'quality', note: '抽检 3240 包' },
+    ],
+    series: [
+      { key: 'temp', title: '近 8 小时热封温度', unit: '°C', tone: 'amber', threshold: 185, current: 183.4, points: [
+        { label: '00h', value: 172.8 }, { label: '01h', value: 174.2 }, { label: '02h', value: 176.5 }, { label: '03h', value: 178.1 }, { label: '04h', value: 179.8 }, { label: '05h', value: 181.7 }, { label: '06h', value: 182.9 }, { label: '07h', value: 183.4 },
+      ] },
+      { key: 'vibration', title: '近 8 小时振动趋势', unit: 'mm/s', tone: 'red', threshold: 2.8, current: 2.46, points: [
+        { label: '00h', value: 1.42 }, { label: '01h', value: 1.56 }, { label: '02h', value: 1.71 }, { label: '03h', value: 1.93 }, { label: '04h', value: 2.08 }, { label: '05h', value: 2.24 }, { label: '06h', value: 2.37 }, { label: '07h', value: 2.46 },
+      ] },
+      { key: 'energy', title: '近 8 小时能耗趋势', unit: 'kWh', tone: 'teal', threshold: 62, current: 61, points: [
+        { label: '00h', value: 46 }, { label: '01h', value: 48 }, { label: '02h', value: 51 }, { label: '03h', value: 54 }, { label: '04h', value: 55 }, { label: '05h', value: 57 }, { label: '06h', value: 60 }, { label: '07h', value: 61 },
+      ] },
+    ],
+    snapshot: [
+      { label: '批次', value: 'B240311-A17 / 乳饮料 250ml' },
+      { label: '换卷余量', value: '34%' },
+      { label: '连续运行', value: '07:42' },
+      { label: '维护窗口', value: '热封辊点检剩余 18h' },
+    ],
+  },
+  'BAC-2-CHL': {
+    status: '供回水温差稳定，能耗偏高但仍可控',
+    statusTone: 'cyan',
+    metrics: [
+      { label: '供水温度', value: '27.6°C', delta: '-0.4°C', tone: 'teal', icon: 'bac', note: '目标 28°C' },
+      { label: '回水温度', value: '31.1°C', delta: '+0.2°C', tone: 'cyan', icon: 'bac', note: '温差 3.5°C' },
+      { label: '风机负载', value: '68%', delta: '+4%', tone: 'cyan', icon: 'energy', note: '变频运行' },
+      { label: '补水量', value: '5.2 t/h', delta: '+0.5', tone: 'amber', icon: 'alert', note: '天气升温略上行' },
+    ],
+    series: [
+      { key: 'water', title: '近 8 小时供回水温差', unit: '°C', tone: 'cyan', threshold: 4.2, current: 3.5, points: [
+        { label: '00h', value: 3.1 }, { label: '01h', value: 3.2 }, { label: '02h', value: 3.3 }, { label: '03h', value: 3.3 }, { label: '04h', value: 3.4 }, { label: '05h', value: 3.5 }, { label: '06h', value: 3.5 }, { label: '07h', value: 3.5 },
+      ] },
+      { key: 'fan', title: '近 8 小时风机负载', unit: '%', tone: 'teal', threshold: 82, current: 68, points: [
+        { label: '00h', value: 54 }, { label: '01h', value: 56 }, { label: '02h', value: 58 }, { label: '03h', value: 60 }, { label: '04h', value: 63 }, { label: '05h', value: 65 }, { label: '06h', value: 67 }, { label: '07h', value: 68 },
+      ] },
+    ],
+    snapshot: [
+      { label: '支撑范围', value: '包装线 A / B 冷却循环' },
+      { label: '药剂余量', value: '61%' },
+      { label: '连续运行', value: '19:06' },
+      { label: '维护计划', value: '喷淋盘清洗 D+2' },
+    ],
+  },
+  'AIR-A-01': {
+    status: '排气压力稳定，负载轻微抬升',
+    statusTone: 'cyan',
+    metrics: [
+      { label: '排气压力', value: '0.73 MPa', delta: '+0.01', tone: 'teal', icon: 'air', note: '目标 0.72 MPa' },
+      { label: '压力露点', value: '2.4°C', delta: '+0.3°C', tone: 'teal', icon: 'air', note: '干燥机正常' },
+      { label: '机组负载', value: '71%', delta: '+6%', tone: 'cyan', icon: 'energy', note: '包装线升速带动' },
+      { label: '比功率', value: '6.18', delta: '+0.08', tone: 'amber', icon: 'quality', note: '关注效率回落' },
+    ],
+    series: [
+      { key: 'pressure', title: '近 8 小时排气压力', unit: 'MPa', tone: 'cyan', threshold: 0.76, current: 0.73, points: [
+        { label: '00h', value: 0.70 }, { label: '01h', value: 0.71 }, { label: '02h', value: 0.71 }, { label: '03h', value: 0.72 }, { label: '04h', value: 0.72 }, { label: '05h', value: 0.73 }, { label: '06h', value: 0.73 }, { label: '07h', value: 0.73 },
+      ] },
+      { key: 'load', title: '近 8 小时机组负载', unit: '%', tone: 'amber', threshold: 80, current: 71, points: [
+        { label: '00h', value: 52 }, { label: '01h', value: 55 }, { label: '02h', value: 59 }, { label: '03h', value: 62 }, { label: '04h', value: 65 }, { label: '05h', value: 67 }, { label: '06h', value: 70 }, { label: '07h', value: 71 },
+      ] },
+    ],
+    snapshot: [
+      { label: '供气范围', value: '包装 / 灌装 / 阀组' },
+      { label: '油滤余量', value: '23%' },
+      { label: '连续运行', value: '31:18' },
+      { label: '建议', value: '48h 内复测比功率' },
+    ],
+  },
+}
 
 const overtimeTrend: TrendPoint[] = [
   { label: '20:00', value: 1 },
@@ -682,6 +786,32 @@ function BarChart({ data, activeLabel, onSelect, meta }: { data: SegmentDatum[];
   )
 }
 
+function DeviceMetricGrid({ metrics }: { metrics: TelemetryMetric[] }) {
+  return (
+    <div className="telemetry-metric-grid">
+      {metrics.map((metric) => (
+        <div key={metric.label} className={`telemetry-metric-card tone-${metric.tone}`}>
+          <span>{metric.label}</span>
+          <strong><IndustrialIcon kind={metric.icon} tone={metric.tone} />{metric.value}</strong>
+          <div className="selection-meta"><span>{metric.delta}</span><span>{metric.note}</span></div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DeviceTelemetryChart({ series }: { series: TelemetrySeries }) {
+  return (
+    <div className="telemetry-series-card">
+      <div className="chart-headband">
+        <span>{series.title}</span>
+        <strong>{series.current}{series.unit}</strong>
+      </div>
+      <LineTrendChart data={series.points} tone={series.tone} unit={series.unit} compact threshold={series.threshold} />
+    </div>
+  )
+}
+
 function ChartPanel({ eyebrow, title, tag, children }: { eyebrow: string; title: string; tag: string; children: ReactNode }) {
   return (
     <section className="card dense-card chart-card">
@@ -718,6 +848,16 @@ function App() {
 
   const activeNav = useMemo(() => navItems.find((item) => item.id === page) ?? navItems[0], [page])
   const selectedWorkOrderDetail = useMemo(() => getWorkOrderById(workOrders, selectedWorkOrder), [selectedWorkOrder, workOrders])
+  const selectedTelemetry = useMemo(() => deviceTelemetry[selectedDevice] ?? deviceTelemetry['PKG-03-HS'], [selectedDevice])
+  const focusTelemetry = useMemo(() => {
+    if (focusTarget.type === 'device') return deviceTelemetry[focusTarget.id] ?? deviceTelemetry['PKG-03-HS']
+    if (focusTarget.type === 'workorder') {
+      const workOrder = getWorkOrderById(workOrders, focusTarget.id)
+      return deviceTelemetry[workOrder.deviceId] ?? selectedTelemetry
+    }
+    const alert = alerts.find((item) => item.id === focusTarget.id) ?? alerts[0]
+    return deviceTelemetry[alert.deviceId] ?? selectedTelemetry
+  }, [alerts, focusTarget, selectedTelemetry, workOrders])
 
   const focusDetail = useMemo<FocusDetail>(() => {
     if (focusTarget.type === 'device') {
@@ -1167,6 +1307,27 @@ function App() {
                 />
               </ChartPanel>
 
+              <section className="card span-12 dense-card">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">设备数据看板</p>
+                    <h3>{devices.find((item) => item.id === selectedDevice)?.name} / 实时监控</h3>
+                  </div>
+                  <span className={`panel-tag tone-${selectedTelemetry.statusTone}`}>{selectedTelemetry.status}</span>
+                </div>
+                <DeviceMetricGrid metrics={selectedTelemetry.metrics} />
+                <div className="telemetry-series-grid">
+                  {selectedTelemetry.series.map((series) => (
+                    <DeviceTelemetryChart key={series.key} series={series} />
+                  ))}
+                </div>
+                <div className="telemetry-snapshot-grid">
+                  {selectedTelemetry.snapshot.map((item) => (
+                    <div key={item.label} className="field-card"><span>{item.label}</span><strong>{item.value}</strong></div>
+                  ))}
+                </div>
+              </section>
+
               <section className="card span-7 dense-card">
                 <div className="section-title">
                   <div>
@@ -1365,6 +1526,19 @@ function App() {
                         <span className="side-label">当前依据</span>
                         {renderSkillChips(focusDetail.activeSkillIds)}
                       </div>
+                    </div>
+                    <div className="section-title slim-title telemetry-inline-title">
+                      <div>
+                        <p className="eyebrow">设备监控</p>
+                        <h3>关联设备实时数据</h3>
+                      </div>
+                      <span className={`panel-tag tone-${focusTelemetry.statusTone}`}>{focusTelemetry.status}</span>
+                    </div>
+                    <DeviceMetricGrid metrics={focusTelemetry.metrics.slice(0, 4)} />
+                    <div className="telemetry-series-grid compact-telemetry-grid">
+                      {focusTelemetry.series.slice(0, 2).map((series) => (
+                        <DeviceTelemetryChart key={series.key} series={series} />
+                      ))}
                     </div>
                   </div>
                 </div>

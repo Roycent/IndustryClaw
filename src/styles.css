@@ -633,3 +633,64 @@ tbody tr:hover { background: rgba(255,255,255,0.03); }
   .ring-chart-wrap { width: 132px; height: 132px; }
   .ring-chart { width: 132px; height: 132px; }
 }
+
+.telemetry-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.telemetry-metric-card,
+.telemetry-series-card {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(11, 24, 39, 0.98), rgba(7, 17, 29, 0.92));
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: inset 0 0 0 1px rgba(97, 180, 255, 0.05), 0 14px 32px rgba(0, 0, 0, 0.2);
+}
+.telemetry-metric-card strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.telemetry-metric-card.tone-red { border-color: rgba(255, 110, 128, 0.22); }
+.telemetry-metric-card.tone-amber { border-color: rgba(255, 202, 104, 0.22); }
+.telemetry-metric-card.tone-teal { border-color: rgba(75, 255, 201, 0.22); }
+.telemetry-metric-card.tone-cyan { border-color: rgba(85, 239, 255, 0.22); }
+.telemetry-series-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.telemetry-series-card .chart-block {
+  min-height: unset;
+}
+.telemetry-series-card .industrial-chart-frame {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.telemetry-snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.telemetry-inline-title {
+  margin-top: 12px;
+}
+.compact-telemetry-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 1200px) {
+  .telemetry-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .telemetry-series-grid { grid-template-columns: 1fr; }
+  .telemetry-snapshot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .telemetry-metric-grid,
+  .telemetry-snapshot-grid,
+  .compact-telemetry-grid { grid-template-columns: 1fr; }
+}
