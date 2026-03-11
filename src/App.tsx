@@ -701,7 +701,7 @@ function SegmentedBarChart({ data, activeLabel, onSelect, meta }: { data: Segmen
                 <div className={`distribution-fill tone-${item.tone}`} style={{ width: `${(item.value / max) * 100}%` }} />
               </div>
             </div>
-            <MiniTrend data={[Math.max(item.value - 1, 0), item.value, Math.max(item.value - (item.value > 1 ? 0 : 0), 0), item.value]} tone={item.tone} />
+            {/* <MiniTrend data={[Math.max(item.value - 1, 0), item.value, Math.max(item.value - (item.value > 1 ? 0 : 0), 0), item.value]} tone={item.tone} /> */}
           </button>
         ))}
       </div>
@@ -1334,12 +1334,12 @@ function App() {
                 </div>
               </section>
 
-              <ChartPanel eyebrow="首页图表" title="班次异常趋势" tag="看波峰出现在几点">
+              <ChartPanel eyebrow="首页图表" title="班次异常趋势" tag="警戒线：4次">
                 <LineTrendChart data={shiftTrend} tone="cyan" threshold={4} />
               </ChartPanel>
 
               {showReceiptChart && dashboardMode === 'full' ? (
-              <ChartPanel eyebrow="首页图表" title="回执状态分布" tag="先抓待回和升级中">
+              <ChartPanel eyebrow="首页图表" title="回执状态分布" tag="重点关注：待回执">
                 <RingChart
                   data={receiptDistribution}
                   centerLabel="待跟进"
@@ -1442,7 +1442,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">处置链</p>
-                    <h3>今晚谁在接</h3>
+                    <h3>谁在接</h3>
                   </div>
                   <span className="panel-tag">看责任，不看说法</span>
                 </div>
@@ -1511,7 +1511,6 @@ function App() {
                     <p className="eyebrow">白班先看什么</p>
                     <h3>{selectedWorkOrderDetail.id}</h3>
                   </div>
-                  <span className="panel-tag">缺人就补，超时就催，该升就升</span>
                 </div>
                 <div className="field-grid compact-grid">
                   <div className="field-card"><span>谁没回</span><strong><IndustrialIcon kind="workorder" tone="amber" />{selectedWorkOrderDetail.owner}</strong><small>{selectedWorkOrderDetail.receipt} / {selectedWorkOrderDetail.status}</small></div>
@@ -1667,7 +1666,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">工单中心</p>
-                    <h3>今晚先盯这些单</h3>
+                    <h3>先盯这些单</h3>
                   </div>
                   <div className="filter-row tight">
                     <span className="filter-chip">本班</span>
@@ -1780,7 +1779,7 @@ function App() {
                     <p className="eyebrow">升级记录</p>
                     <h3>已经往上提的事</h3>
                   </div>
-                  <span className="panel-tag">今晚已抬给上级</span>
+                  <span className="panel-tag">已抬给上级</span>
                 </div>
                 <div className="table-wrap">
                   <table>
@@ -1935,7 +1934,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">处置总览</p>
-                    <h3>今晚这班的来源、依据和承接</h3>
+                    <h3>这班的来源、依据和承接</h3>
                   </div>
                   <span className="panel-tag">先看哪件事由谁接、按什么判断</span>
                 </div>
@@ -1950,7 +1949,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">当前承接</p>
-                    <h3>今晚谁在接这些事</h3>
+                    <h3>谁在接这些事</h3>
                   </div>
                   <span className="panel-tag">按责任拆开看</span>
                 </div>
@@ -1995,7 +1994,7 @@ function App() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">判断依据</p>
-                    <h3>今晚这班主要按这些信息拍板</h3>
+                    <h3>这班主要按这些信息拍板</h3>
                   </div>
                   <span className="panel-tag">不是看说明，看依据</span>
                 </div>
@@ -2030,20 +2029,43 @@ function App() {
         <div className="assistant-drawer__header">
           <div>
             <p className="eyebrow">值班助手</p>
-            <h3>通过对话改看板</h3>
+            <h3>IndustryClaw管理</h3>
           </div>
           <button type="button" className="secondary-btn" onClick={() => setAssistantOpen(false)}>关闭</button>
         </div>
-        <div className="assistant-drawer__context">
+        {/* <div className="assistant-drawer__context">
           <span className="filter-chip active">当前页面：{activeNav.short}</span>
           <span className="filter-chip">当前设备：{devices.find((item) => item.id === selectedDevice)?.name}</span>
           <span className="filter-chip">首页模式：{dashboardMode === 'deviceOnly' ? '只看设备数据' : '完整看板'}</span>
-        </div>
+        </div> */}
         <div className="assistant-drawer__suggestions">
-          {['把 BAC 看板加到首页', '隐藏回执图', '只看设备数据', '切到包装机 3 号', '恢复全部看板'].map((prompt) => (
-            <button key={prompt} type="button" className="selection-card" onClick={() => handleAssistantCommand(prompt)}>{prompt}</button>
-          ))}
+          <p className="eyebrow" style={{ marginBottom: 4 }}>猜你想问</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: 2 }}>
+            {[
+              '把 BAC 看板加到首页',
+              '隐藏回执图',
+              '只看设备数据',
+              '切到包装机 3 号',
+              '恢复全部看板'
+            ].map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className="compact-card selection-card"
+                style={{
+                  padding: '6px 10px',
+                  fontSize: '11px',
+                  borderRadius: '999px',
+                  margin: 0,
+                }}
+                onClick={() => handleAssistantCommand(prompt)}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
         </div>
+        <div style={{ borderTop: '1px solid rgba(97,180,255,0.10)', margin: '4px 0' }} />
         <div className="assistant-drawer__messages">
           {assistantMessages.map((message, index) => (
             <div key={`${message.role}-${index}`} className={`assistant-bubble ${message.role}`}>
